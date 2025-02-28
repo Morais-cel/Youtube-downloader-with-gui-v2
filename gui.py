@@ -4,12 +4,20 @@ import requests
 import os
 import moviepy as mp
 import shutil
-import asyncio
+import subprocess
 
 modo=''
 url=''
 py_get_inf=['title','author','thumb_link','description','publish_date','views','resoluções do vídeo']
 res_qual=''
+
+def res_qualidade_video_func(e): #Função que define se a resolução de 1080p está disponível no vídeo
+        resolucoes=py_get_inf[6]
+        if '1080p' in resolucoes:
+            return '1080p'
+        else:
+            return '720p'
+
 
 def baixar_thumb_func(e): #Função que cria, caso necessário, uma pasta definida como Thumb e salva a imagem do vídeo escolhido
     thumb_bin= requests.get(py_get_inf[2])
@@ -74,44 +82,50 @@ def video_download_fast(e): #Função que baixa o vídeo escolhido resolução 3
     video.download(output_path=pasta_principal) #Download vídeo
     pass
 
-async def video_download_quality():
+def video_download_quality(e):
+    video_local=r'C:\Users\pedro\Desktop\Youtube Download\Download qualidade\Video' #Local onde o vídeo sem audio será salvo
+    audio_local=r'C:\Users\pedro\Desktop\Youtube Download\Download qualidade\Audio' #Local onde o audio do vídeo será salvo
+    pasta_principal=r'C:\Users\pedro\Desktop\Youtube Download\Download qualidade'
     yt=pt.YouTube(url)
-    video_local=r'C:\Users\pedro\Desktop\Youtube Download\Download qualidade (1080p)\Video' #Local onde o vídeo sem audio será salvo
-    audio_local=r'C:\Users\pedro\Desktop\Youtube Download\Download qualidade (1080p)\Audio' #Local onde o audio do vídeo será salvo
-    pasta_principal=r'C:\Users\pedro\Desktop\Youtube Download\Download qualidade (1080p)'
-    video=yt.streams.filter(file_extension='mp4',res=f'1080p').first()
-    audio=yt.streams.filter(file_extension='mp4',res='360p').first()
+    video=yt.streams.filter(file_extension='mp4',res=f'{res_qual}').first()
+    audio=yt.streams.filter(file_extension='mp4').first()
     if not os.path.exists(video_local): #Criar pasta do local do vídeo(sem audio), caso não exista
         os.makedirs(video_local)
     if not os.path.exists(audio_local): #Criar pasta do local do audio do vídeo, caso não exista
         os.makedirs(audio_local)
-    await asyncio.to_thread(video.download,output_path=video_local) #Processo de baixar o vídeo sem audio
-    await asyncio.to_thread(audio.download,output_path=audio_local) #Processo de baixar o audio do video
+    video.download(output_path=video_local)
+    audio.download(output_path=audio_local)
     for i1, i2, arquivos in os.walk(audio_local):
             for arq_atual in arquivos:
                 video_path=os.path.join(audio_local,arq_atual)
                 audio_path=os.path.join(audio_local,str(arq_atual).replace('mp4','mp3')) 
-                await asyncio.to_thread(convert_to_mp3,video_path,audio_path)
-    video_path=os.path.join(video_local,f'{yt.title}.mp4')
-    audio_path=os.path.join(audio_local,f'{yt.title}.mp3')
-    await asyncio.to_thread(combine_video_audio,video_path,audio_path,os.path.join(pasta_principal,f'{yt.title}.mp4'))
+                convert_mp4_mp3(video_path,audio_path)
+    video_arquivo=os.path.join(video_local,f'{yt.title}.mp4')
+    audio_arquivo=os.path.join(audio_local,f'{yt.title}.mp3')
+    output_arquivo=os.path.join(pasta_principal,f'{yt.title}.mp4')
+    video_maker_func(video_arquivo,audio_arquivo,output_arquivo)
+    shutil.rmtree(video_local)
+    shutil.rmtree(audio_local)
 
-def convert_to_mp3(video_path,audio_path):
+def convert_mp4_mp3(video_path,audio_path):
     clip=mp.VideoFileClip(video_path)
     clip.audio.write_audiofile(audio_path)
     clip.close()
     os.remove(video_path)
 
-def combine_video_audio(video_path,audio_path,local_save):
-    video_clip=mp.VideoFileClip(video_path)
-    audio_clip=mp.AudioFileClip(audio_path)
-    video_clip.audio=audio_clip
-    video_clip.write_videofile(local_save,fps=60,codec='libx264',audio_codec='aac')
-    video_clip.close()
-    audio_clip.close()
-
-async def ao_clicar_func(e):
-    asyncio.create_task(video_download_quality())
+def video_maker_func(video_local,audio_local,output_local):
+    command=[
+        'ffmpeg',
+        '-i', video_local,
+        '-i', audio_local,
+        '-c:v', 'copy',
+        '-c:a', 'aac',
+        '-map', '0:v:0',
+        '-map', '1:a:0',
+        '-shortest',
+        output_local
+    ]
+    subprocess.run(command)
 
 async def programa(janela: Page): 
 
@@ -139,6 +153,112 @@ async def programa(janela: Page):
         return [pt_title,pt_author,pt_thumb_link,pt_description,pt_publish_date,pt_views,resoluções]
 
     #-------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------
+#Funções relacionadas a página 1
+    def esc_colum_dowl_func_page3(e): #Função que define a coluna que será colocada no quadro a depender da escolha na página 1
+        global modo
+        if modo=='MUSICA':
+            return botoes_download_musica
+        else:
+            return botoes_download_video
+
+    def link_func(e): #Função responsável por atribuir o modo para a variável global modo
+        global modo
+        modo=e.control.data
+        pass
+
+#------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------
+#Funções relacionadas a página 2
+
+    def bot_url_func(e): #Função responsável por realizar o processo de bloquear o funcionamento dos botões presentes na página 1 (página inicial)
+        page2.controls[0].offset=transform.Offset(0,0)
+        for i in itens.controls:
+            i.controls[0].content.controls[1].disabled=True
+        janela.update()    
+        pass
+
+    def config_urlpg_func(e): #Função que configura o funcionamento do botão de chamada da página 2
+        link_func(e)
+        bot_url_func(e)
+        pass
+
+    def prosseguir_func(e): #Função responsável por abrir a página 3 (página de informações da URL)
+        voltar_func(e) #Redefine o estado das páginas 1 e 2 para o inicial, evitando problemas futuros
+        global modo
+        global url
+        global py_get_inf
+        global res_qual
+        url=link.controls[0].value
+        py_get_inf=pytube_inf(e) #Processo para se obter as informações do vídeo presente na URL informada
+        res_qual=res_qualidade_video_func(e)
+        thumbnail.controls[0].src=py_get_inf[2] #Atualização da imagem da thumbnail
+        botoes_download_video.controls[1].content.value=f'Qualidade ({res_qual})'
+        link.controls[0].value='' #Resetando o valor do textfield do link para evitar futuros problemas
+        if modo=='MUSICA' or modo=='VIDEO':
+            janela.window.width=800
+            janela.window.height=270
+            janela.clean()
+            janela.update()
+            janela.add(page3)
+        else:
+            janela.window.width=450
+            janela.window.height=500
+            janela.window.resizable=False
+            janela.clean()
+            #page4
+        pass
+
+    def url_value_func(e): #Função que trava o botão prosseguir na página dois quando o textfield estiver vazio
+        if link.controls[0].value=='':
+            link.controls[1].controls[1].disabled=True
+            janela.update()
+        else:
+            link.controls[1].controls[1].disabled=False
+            janela.update()
+
+    def voltar_func(e): #Função responsável por realizar o processo de fechar a segunda página (página da URL) e liberar o funcionamento dos botões presentes na página 1 (página inicial)
+        page2.controls[0].offset=transform.Offset(0,1)
+        for i in itens.controls:
+            i.controls[0].content.controls[1].disabled=False
+        janela.update()     
+
+#------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------
+#Funções relacionadas a página 3
+
+    def autor_display_hover(e): #Função que define o processo de hover para o container com informações do autor do vídeo
+        if e.data=='true': #Mouse EM CIMA do container
+            e.control.width=417
+            e.control.content=Text(
+                                value=(py_get_inf[1]),
+                                color=colors.BLACK,
+                                size=17,
+                                max_lines=1,
+                                weight=FontWeight.BOLD,
+                            )
+            e.control.alignment=alignment.center_left
+        else: #Mouse FORA do container
+            e.control.width=100
+            e.control.content=Row(alignment=MainAxisAlignment.CENTER,
+                            controls=[
+                                Text(
+                                    value=('Autor'),
+                                    color=colors.BLACK,
+                                    weight=FontWeight.BOLD,
+                                    size=19,
+                                ),
+                                Icon(
+                                    name=Icons.ARROW_FORWARD_ROUNDED,
+                                    color=colors.BLACK,
+                                    size=22,
+                                )
+                        ])
+        janela.update()
+        pass
 
     def download_hover_func(e): #Função responsável pelo funcionamento pela barra de download na página 3
         if e.data=='true': #Mouse EM CIMA do container
@@ -172,120 +292,6 @@ async def programa(janela: Page):
             e.control.border_radius=border_radius.all(3)
             e.control.content=Text('')
             pass
-        janela.update()
-        pass
-
-    def esc_colum_dowl_func_page3(e): #Função que define a coluna que será colocada no quadro a depender da escolha na página 1
-        global modo
-        if modo=='MUSICA':
-            return botoes_download_musica
-        else:
-            return botoes_download_video
-
-    def url_value_func(e): #Função que trava o botão prosseguir na página dois quando o textfield estiver vazio
-        if link.controls[0].value=='':
-            link.controls[1].controls[1].disabled=True
-            janela.update()
-        else:
-            link.controls[1].controls[1].disabled=False
-            janela.update()
-
-    def voltar_page3_func(e): #Função responsável por retornar ao estado de página 2 
-        janela.window.width=500
-        janela.window.height=380
-        voltar_hover_func(e)
-        url_value_func(e)
-        bot_url_func(e)
-        janela.clean()
-        janela.add(bg)
-        janela.update()
-        pass
-
-    def voltar_hover_func(e): #Função que define o processo de hover para o container resposável por realizar a ação de voltar 
-        if e.data=='true': #Mouse EM CIMA do container
-            e.control.width=50
-            e.control.border_radius=border_radius.all(5)
-            e.control.content=Column(
-                                alignment=MainAxisAlignment.CENTER,
-                                horizontal_alignment=CrossAxisAlignment.CENTER,
-                                controls=[
-                                        Text(
-                                            value='Voltar',
-                                            color=colors.BLACK,
-                                            size=12,
-                                            weight=FontWeight.BOLD
-                                        ),
-                                        Icon(
-                                            name=Icons.ARROW_BACK_ROUNDED,
-                                            color=colors.BLACK,
-                                            size=22
-                                        )
-                            ])
-            thumbnail.width=260
-            e.control.on_click=voltar_page3_func
-        else: #Mouse FORA do container
-            e.control.width=10
-            thumbnail.width=300
-            e.control.border_radius=border_radius.all(3)
-            e.control.content=Text('')
-        janela.update()
-        pass
-
-    def titulo_display_hover(e): #Função que define o processo de hover para o container com informações do título do vídeo
-        if e.data=='true': #Mouse EM CIMA do container
-            e.control.width=417
-            e.control.content=Text(
-                                value=(py_get_inf[0]),
-                                color=colors.BLACK,
-                                size=17,
-                                max_lines=1,
-                            )
-            e.control.alignment=alignment.center_left
-        else: #Mouse FORA do container
-            e.control.width=130
-            e.control.content=Row(alignment=MainAxisAlignment.CENTER,
-                            controls=[
-                                Text(
-                                    value=('Titulo'),
-                                    color=colors.BLACK,
-                                    weight=FontWeight.BOLD,
-                                    size=19,
-                                ),
-                                Icon(
-                                    name=Icons.ARROW_FORWARD_ROUNDED,
-                                    color=colors.BLACK,
-                                    size=22,
-                                )
-                        ])
-        janela.update()
-        pass
-
-    def autor_display_hover(e): #Função que define o processo de hover para o container com informações do autor do vídeo
-        if e.data=='true': #Mouse EM CIMA do container
-            e.control.width=417
-            e.control.content=Text(
-                                value=(py_get_inf[1]),
-                                color=colors.BLACK,
-                                size=17,
-                                max_lines=1,
-                            )
-            e.control.alignment=alignment.center_left
-        else: #Mouse FORA do container
-            e.control.width=100
-            e.control.content=Row(alignment=MainAxisAlignment.CENTER,
-                            controls=[
-                                Text(
-                                    value=('Autor'),
-                                    color=colors.BLACK,
-                                    weight=FontWeight.BOLD,
-                                    size=19,
-                                ),
-                                Icon(
-                                    name=Icons.ARROW_FORWARD_ROUNDED,
-                                    color=colors.BLACK,
-                                    size=22,
-                                )
-                        ])
         janela.update()
         pass
 
@@ -403,6 +409,36 @@ async def programa(janela: Page):
         janela.update()
         pass
 
+    def titulo_display_hover(e): #Função que define o processo de hover para o container com informações do título do vídeo
+        if e.data=='true': #Mouse EM CIMA do container
+            e.control.width=417
+            e.control.content=Text(
+                                value=(py_get_inf[0]),
+                                color=colors.BLACK,
+                                size=17,
+                                max_lines=1,
+                                weight=FontWeight.BOLD,
+                            )
+            e.control.alignment=alignment.center_left
+        else: #Mouse FORA do container
+            e.control.width=130
+            e.control.content=Row(alignment=MainAxisAlignment.CENTER,
+                            controls=[
+                                Text(
+                                    value=('Titulo'),
+                                    color=colors.BLACK,
+                                    weight=FontWeight.BOLD,
+                                    size=19,
+                                ),
+                                Icon(
+                                    name=Icons.ARROW_FORWARD_ROUNDED,
+                                    color=colors.BLACK,
+                                    size=22,
+                                )
+                        ])
+        janela.update()
+        pass
+
     def thumb_display_func(e): #Função que possibilita o efeito de surgimento do container presente por cima da imagem definida como THUMBNAIL
         if e.data=='true': #Mouse EM CIMA do container
             e.control.bgcolor=colors.WHITE38
@@ -427,140 +463,147 @@ async def programa(janela: Page):
             e.control.content=Text('')
         e.control.update()
 
-    def res_qualidade_video_func(e): #Função que define se a resolução de 1080p está disponível no vídeo
-        resolucoes=py_get_inf[6]
-        if '1080p' in resolucoes:
-            return '1080p'
-        else:
-            return '720p'
-
-    def prosseguir_func(e): #Função responsável por abrir a página 3 (página de informações da URL)
-        voltar_func(e) #Redefine o estado das páginas 1 e 2 para o inicial, evitando problemas futuros
-        global modo
-        global url
-        global py_get_inf
-        global res_qual
-        url=link.controls[0].value
-        py_get_inf=pytube_inf(e) #Processo para se obter as informações do vídeo presente na URL informada
-        res_qual=res_qualidade_video_func(e)
-        print(py_get_inf)
-        thumbnail.controls[0].src=py_get_inf[2] #Atualização da imagem da thumbnail
-        botoes_download_video.controls[1].content.value=f'Qualidade ({res_qual})'
-        link.controls[0].value='' #Resetando o valor do textfield do link para evitar futuros problemas
-        if modo=='MUSICA' or modo=='VIDEO':
-            janela.window.width=800
-            janela.window.height=270
-            janela.clean()
-            janela.update()
-            janela.add(page3)
-        else:
-            janela.window.width=800
-            janela.window.height=330
-            janela.window.resizable=False
-            janela.clean()
-            #page4
-        pass
-
-    def voltar_func(e): #Função responsável por realizar o processo de fechar a segunda página (página da URL) e liberar o funcionamento dos botões presentes na página 1 (página inicial)
-        page2.controls[0].offset=transform.Offset(0,1)
-        for i in itens.controls:
-            i.controls[0].content.controls[1].disabled=False
-        janela.update()     
-
-    def bot_url_func(e): #Função responsável por realizar o processo de bloquear o funcionamento dos botões presentes na página 1 (página inicial)
-        page2.controls[0].offset=transform.Offset(0,0)
-        for i in itens.controls:
-            i.controls[0].content.controls[1].disabled=True
-        janela.update()    
-        pass
-
-    def link_func(e): #Função responsável por atribuir o modo para a variável global modo
-        global modo
-        modo=e.control.data
-        pass     
-    
-    def config_urlpg_func(e): #Função que configura o funcionamento do botão de chamada da página 2
-        link_func(e)
+    def voltar_page3_func(e): #Função responsável por retornar ao estado de página 2 
+        janela.window.width=500
+        janela.window.height=380
+        voltar_hover_func(e)
+        url_value_func(e)
         bot_url_func(e)
+        janela.clean()
+        janela.add(bg)
+        janela.update()
         pass
 
-    botoes_download_musica=Column( #Coluna botões de opções de download de música
-            alignment=MainAxisAlignment.CENTER,
-            horizontal_alignment=CrossAxisAlignment.CENTER,
-            controls=[
-                    ElevatedButton( #Botão baixar música MP3
-                                    width=120,
-                                    height=50,
-                                    content=Text(
-                                                value='Clássico (MP3)',
-                                                color=colors.BLACK
-                                            ),
-                                    bgcolor=colors.WHITE30,
-                                    style=ButtonStyle(
-                                                    shape=RoundedRectangleBorder(radius=5),
-                                                    side=(
-                                                        BorderSide(1,colors.BLACK)
-                                                        )
-                                                ),
-                                    on_click=musica_download_mp3
-                    ),
-                    ElevatedButton( #Botão baixar música M4A
-                                    width=120,
-                                    height=50,
-                                    content=Text(
-                                                value='Universal (M4A)',
-                                                color=colors.BLACK,
-                                                size=13),
-                                                bgcolor=colors.WHITE30,
-                                                style=ButtonStyle(
-                                                                shape=RoundedRectangleBorder(radius=5),
-                                                                side=(
-                                                                    BorderSide(1,colors.BLACK)
-                                                                    )
-                                                            ),
-                                    on_click=musica_download_m4a
-                    ),
-                                    
-    ])
+    def voltar_hover_func(e): #Função que define o processo de hover para o container resposável por realizar a ação de voltar 
+        if e.data=='true': #Mouse EM CIMA do container
+            e.control.width=50
+            e.control.border_radius=border_radius.all(5)
+            e.control.content=Column(
+                                alignment=MainAxisAlignment.CENTER,
+                                horizontal_alignment=CrossAxisAlignment.CENTER,
+                                controls=[
+                                        Text(
+                                            value='Voltar',
+                                            color=colors.BLACK,
+                                            size=12,
+                                            weight=FontWeight.BOLD
+                                        ),
+                                        Icon(
+                                            name=Icons.ARROW_BACK_ROUNDED,
+                                            color=colors.BLACK,
+                                            size=22
+                                        )
+                            ])
+            thumbnail.width=260
+            e.control.on_click=voltar_page3_func
+        else: #Mouse FORA do container
+            e.control.width=10
+            thumbnail.width=300
+            e.control.border_radius=border_radius.all(3)
+            e.control.content=Text('')
+        janela.update()
+        pass
 
-    botoes_download_video=Column( #Coluna botões de opções de download de música
-            alignment=MainAxisAlignment.CENTER,
-            horizontal_alignment=CrossAxisAlignment.CENTER,
-            controls=[
-                    ElevatedButton( #Botão baixar vídeo opção rápida
-                                    width=120,
-                                    height=50,
-                                    content=Text(
-                                                value='Rápido (360p)',
-                                                color=colors.BLACK
-                                            ),
-                                    bgcolor=colors.WHITE30,
-                                    style=ButtonStyle(
-                                                    shape=RoundedRectangleBorder(radius=5),
-                                                    side=(
-                                                        BorderSide(1,colors.BLACK)
-                                                        )
-                                                ),
-                                    on_click=video_download_fast
-                    ),
-                    ElevatedButton( #Botão baixar vídeo opcão qualidade
-                                    width=120,
-                                    height=50,
-                                    content=Text(
-                                                value=f'Qualidade ()',
-                                                color=colors.BLACK,
-                                                size=11),
-                                                bgcolor=colors.WHITE30,
-                                                style=ButtonStyle(
-                                                                shape=RoundedRectangleBorder(radius=5),
-                                                                side=(
-                                                                    BorderSide(1,colors.BLACK)
-                                                                    )
-                                                            ),
-                                    on_click=ao_clicar_func
-                    ),
+#------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------
+#Funções relacionadas a página 4
+
+    def thumb_page4_display_func(e): #Função que possibilita o efeito de surgimento do container presente por cima da imagem definida como THUMBNAIL_page4
+        if e.data=='true':
+            e.control.bgcolor=colors.WHITE38
+            e.control.content=Column(
+                                    alignment=MainAxisAlignment.CENTER,
+                                    horizontal_alignment=CrossAxisAlignment.CENTER,
+                                    controls=[
+                                        Text(
+                                            value=('Clique para baixar a imagem.'),
+                                            color=colors.BLACK,
+                                            weight=FontWeight.BOLD,
+                                            size=12,
+                                            overflow=TextOverflow.FADE,
+                                            text_align=TextAlign.CENTER
+                                        ),
+                                        Icon(
+                                            name=Icons.FILE_DOWNLOAD_ROUNDED,
+                                            size=20,
+                                            color=colors.BLACK
+                                        )
+                        ])
+        else: #Mouse FORA do container
+            e.control.bgcolor=colors.WHITE10
+            e.control.content=Text('')
+        e.control.update()
+
+    def titulo_page_4_hover(e):
+        if e.data=='true':
+            e.control.width=259
+            e.control.content=Text(
+                                value=(py_get_inf[0]),
+                                color=colors.BLACK,
+                                size=12,
+                                max_lines=1,
+                                weight=FontWeight.BOLD,
+                                overflow=TextOverflow.ELLIPSIS
+                            )
+            e.control.alignment=alignment.center_left
+        else:
+            e.control.width=70
+            e.control.content=Row(alignment=MainAxisAlignment.CENTER,
+                            controls=[
+                                Text(
+                                    value=('Titulo'),
+                                    color=colors.BLACK,
+                                    weight=FontWeight.BOLD,
+                                    size=12,
                                     
-    ])
+                                ),
+                                Icon(
+                                    name=Icons.ARROW_FORWARD_ROUNDED,
+                                    color=colors.BLACK,
+                                    size=12,
+                                )
+                        ])
+        janela.update()
+        pass
+
+    def autor_page_4_hover(e):
+        if e.data=='true':
+            e.control.width=259
+            e.control.content=Text(
+                                value=(py_get_inf[1]),
+                                color=colors.BLACK,
+                                size=12,
+                                max_lines=1,
+                                weight=FontWeight.BOLD,
+                                overflow=TextOverflow.ELLIPSIS
+                            )
+            e.control.alignment=alignment.center_left
+        else:
+            e.control.width=70
+            e.control.content=Row(alignment=MainAxisAlignment.CENTER,
+                            controls=[
+                                Text(
+                                    value=('Autor'),
+                                    color=colors.BLACK,
+                                    weight=FontWeight.BOLD,
+                                    size=12,
+                                    
+                                ),
+                                Icon(
+                                    name=Icons.ARROW_FORWARD_ROUNDED,
+                                    color=colors.BLACK,
+                                    size=12,
+                                )
+                        ])
+        janela.update()
+        pass
+
+
+#------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------
+#Itens presentes na página 1
 
     header=Container( #Título do aplicativo
                     height=80,
@@ -575,140 +618,6 @@ async def programa(janela: Page):
                     padding=5,
                     alignment=alignment.center
     )
-
-    inf_i1=Container( #Container que contêm a chamada para o título do vídeo selecionado (pág 3)
-                    height=50,
-                    width=130,
-                    content=Row(
-                            alignment=MainAxisAlignment.CENTER,
-                            controls=[
-                                Text(
-                                    value=('Titulo'),
-                                    color=colors.BLACK,
-                                    weight=FontWeight.BOLD,
-                                    size=19,
-                                ),
-                                Icon(
-                                    name=Icons.ARROW_FORWARD_ROUNDED,
-                                    color=colors.BLACK,
-                                    size=22,
-                                )
-                        ]),
-                    bgcolor=colors.WHITE24,
-                    border_radius=border_radius.all(5),
-                    alignment=alignment.center,
-                    on_hover=titulo_display_hover,
-                    padding=5,
-                    animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE)
-    )
-
-    inf_i2=Container( #Container que contêm a chamada para o autor do vídeo selecionado (pág 3)
-                    height=50,
-                    width=100,
-                    content=Row(alignment=MainAxisAlignment.CENTER,
-                            controls=[
-                                Text(
-                                    value=('Autor'),
-                                    color=colors.BLACK,
-                                    weight=FontWeight.BOLD,
-                                    size=19,
-                                ),
-                                Icon(
-                                    name=Icons.ARROW_FORWARD_ROUNDED,
-                                    color=colors.BLACK,
-                                    size=20,
-                                )
-                        ]),
-                    bgcolor=colors.WHITE24,
-                    border_radius=border_radius.all(5),
-                    alignment=alignment.center_left,
-                    on_hover=autor_display_hover,
-                    padding=5,
-                    animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE)
-    )
-
-    inf_i3=Container( #Container que contêm a chamada para as informações sobre o vídeo selecionado (pág 3)
-                    height=50,
-                    width=230,
-                    content=Row(
-                                alignment=MainAxisAlignment.CENTER,
-                                controls=[
-                                    Text(
-                                        value=('Informações do vídeo'),
-                                        color=colors.BLACK,
-                                        weight=FontWeight.BOLD,
-                                        size=16,
-                                    ),
-                                    Icon(
-                                        name=Icons.ARROW_FORWARD_ROUNDED,
-                                        color=colors.BLACK,
-                                        size=20,
-                                    )
-                        ]),
-                    bgcolor=colors.WHITE24,
-                    border_radius=border_radius.all(5),
-                    alignment=alignment.center_left,
-                    on_hover=inf_display_hover,
-                    padding=5,
-                    animate_size=animation.Animation(600,AnimationCurve.EASE_OUT_SINE)
-    )
-
-    inf_video=Column( #Organização das informações em formato de coluna (pág 3)
-                    alignment=MainAxisAlignment.SPACE_AROUND,
-                    controls=[
-                    inf_i3,
-                    inf_i1,
-                    inf_i2
-            ])
-
-    Download= Container( #Conainer Download (pág 3)
-                        width=10,
-                        height=270,
-                        content=Text(''),
-                        bgcolor=colors.WHITE30,
-                        ink=False,
-                        border_radius=border_radius.all(3),
-                        border=border.all(1,colors.BLACK),
-                        padding=5,
-                        on_hover=download_hover_func,
-                        animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE),
-    )
-
-    voltar=Container( #Container voltar (pág 3)
-                    width=10,
-                    height=270,
-                    content=Text(''),
-                    bgcolor=colors.WHITE30,
-                    ink=False,
-                    border_radius=border_radius.all(3),
-                    border=border.all(1,colors.BLACK),
-                    padding=5,
-                    on_hover=voltar_hover_func,
-                    animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE),
-    )
-
-    thumbnail=Stack( #Região de amostragem da thumb do vídeo desejado (pág 3)
-                    controls=[
-                            Image(
-                                src=py_get_inf[2],
-                                width=300,
-                                height=270,
-                                fit=ImageFit.FILL,
-                                border_radius=border_radius.all(5),
-                                animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE),
-                        ),
-                            Container(
-                                    width=300,
-                                    height=270, 
-                                    bgcolor=colors.WHITE10,
-                                    alignment=alignment.center,
-                                    border_radius=border_radius.all(5),
-                                    ink=False,
-                                    on_hover=thumb_display_func,
-                                    on_click=baixar_thumb_func,
-                                    animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE),
-                        ),
-        ])
 
     i1=Row( #Linha baixar vídeo (pág 1)
         alignment=MainAxisAlignment.CENTER,
@@ -808,6 +717,22 @@ async def programa(janela: Page):
                 i3
     ])
 
+    page1=Column( #Página inicial
+                height=900,
+                width=janela.window.width,
+                spacing=10,
+                alignment=MainAxisAlignment.SPACE_AROUND,
+                horizontal_alignment=CrossAxisAlignment.CENTER,
+                controls=[
+                    header,
+                    itens
+            ])
+
+#------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------
+#Itens presentes na página 2
+
     link=Column( #Layout de tela de onde será inserido o URL (pág 2)
                 alignment=MainAxisAlignment.END,
                 horizontal_alignment=CrossAxisAlignment.CENTER,
@@ -878,17 +803,6 @@ async def programa(janela: Page):
                     padding=5
     )
 
-    page1=Column( #Página inicial
-                height=900,
-                width=janela.window.width,
-                spacing=10,
-                alignment=MainAxisAlignment.SPACE_AROUND,
-                horizontal_alignment=CrossAxisAlignment.CENTER,
-                controls=[
-                    header,
-                    itens
-            ])
-
     page2=Column( #Página de URL
                 height=janela.window.height,
                 width=janela.window.width,
@@ -909,6 +823,223 @@ async def programa(janela: Page):
                     )
                 ]
             )
+
+#------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------
+#Itens presentes na página 3
+
+    botoes_download_musica=Column( #Coluna botões de opções de download de música
+                                alignment=MainAxisAlignment.CENTER,
+                                horizontal_alignment=CrossAxisAlignment.CENTER,
+                                controls=[
+                                        ElevatedButton( #Botão baixar música MP3
+                                                        width=120,
+                                                        height=50,
+                                                        content=Text(
+                                                                    value='Clássico (MP3)',
+                                                                    color=colors.BLACK
+                                                                ),
+                                                        bgcolor=colors.WHITE30,
+                                                        style=ButtonStyle(
+                                                                        shape=RoundedRectangleBorder(radius=5),
+                                                                        side=(
+                                                                            BorderSide(1,colors.BLACK)
+                                                                            )
+                                                                    ),
+                                                        on_click=musica_download_mp3
+                                        ),
+                                        ElevatedButton( #Botão baixar música M4A
+                                                        width=120,
+                                                        height=50,
+                                                        content=Text(
+                                                                    value='Universal (M4A)',
+                                                                    color=colors.BLACK,
+                                                                    size=13),
+                                                                    bgcolor=colors.WHITE30,
+                                                                    style=ButtonStyle(
+                                                                                    shape=RoundedRectangleBorder(radius=5),
+                                                                                    side=(
+                                                                                        BorderSide(1,colors.BLACK)
+                                                                                        )
+                                                                                ),
+                                                        on_click=musica_download_m4a
+                                        ),
+                                ]
+    )
+
+    botoes_download_video=Column( #Coluna botões de opções de download de música
+            alignment=MainAxisAlignment.CENTER,
+            horizontal_alignment=CrossAxisAlignment.CENTER,
+            controls=[
+                    ElevatedButton( #Botão baixar vídeo opção rápida
+                                    width=120,
+                                    height=50,
+                                    content=Text(
+                                                value='Rápido (360p)',
+                                                color=colors.BLACK
+                                            ),
+                                    bgcolor=colors.WHITE30,
+                                    style=ButtonStyle(
+                                                    shape=RoundedRectangleBorder(radius=5),
+                                                    side=(
+                                                        BorderSide(1,colors.BLACK)
+                                                        )
+                                                ),
+                                    on_click=video_download_fast
+                    ),
+                    ElevatedButton( #Botão baixar vídeo opcão qualidade
+                                    width=120,
+                                    height=50,
+                                    content=Text(
+                                                value=f'Qualidade ()',
+                                                color=colors.BLACK,
+                                                size=11),
+                                                bgcolor=colors.WHITE30,
+                                                style=ButtonStyle(
+                                                                shape=RoundedRectangleBorder(radius=5),
+                                                                side=(
+                                                                    BorderSide(1,colors.BLACK)
+                                                                    )
+                                                            ),
+                                    on_click=video_download_quality
+                    ),
+                                    
+    ])
+
+    Download= Container( #Container Download (pág 3)
+                        width=10,
+                        height=270,
+                        content=Text(''),
+                        bgcolor=colors.WHITE30,
+                        ink=False,
+                        border_radius=border_radius.all(3),
+                        border=border.all(1,colors.BLACK),
+                        padding=5,
+                        on_hover=download_hover_func,
+                        animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE),
+    )
+
+    inf_i1=Container( #Container que contêm a chamada para o título do vídeo selecionado (pág 3)
+                    height=50,
+                    width=130,
+                    content=Row(
+                            alignment=MainAxisAlignment.CENTER,
+                            controls=[
+                                Text(
+                                    value=('Titulo'),
+                                    color=colors.BLACK,
+                                    weight=FontWeight.BOLD,
+                                    size=19,
+                                ),
+                                Icon(
+                                    name=Icons.ARROW_FORWARD_ROUNDED,
+                                    color=colors.BLACK,
+                                    size=22,
+                                )
+                        ]),
+                    bgcolor=colors.WHITE24,
+                    border_radius=border_radius.all(5),
+                    alignment=alignment.center,
+                    on_hover=titulo_display_hover,
+                    padding=5,
+                    animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE)
+    )
+
+    inf_i2=Container( #Container que contêm a chamada para o autor do vídeo selecionado (pág 3)
+                    height=50,
+                    width=100,
+                    content=Row(alignment=MainAxisAlignment.CENTER,
+                            controls=[
+                                Text(
+                                    value=('Autor'),
+                                    color=colors.BLACK,
+                                    weight=FontWeight.BOLD,
+                                    size=19,
+                                ),
+                                Icon(
+                                    name=Icons.ARROW_FORWARD_ROUNDED,
+                                    color=colors.BLACK,
+                                    size=20,
+                                )
+                        ]),
+                    bgcolor=colors.WHITE24,
+                    border_radius=border_radius.all(5),
+                    alignment=alignment.center_left,
+                    on_hover=autor_display_hover,
+                    padding=5,
+                    animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE)
+    )
+
+    inf_i3=Container( #Container que contêm a chamada para as informações sobre o vídeo selecionado (pág 3)
+                    height=50,
+                    width=230,
+                    content=Row(
+                                alignment=MainAxisAlignment.CENTER,
+                                controls=[
+                                    Text(
+                                        value=('Informações do vídeo'),
+                                        color=colors.BLACK,
+                                        weight=FontWeight.BOLD,
+                                        size=16,
+                                    ),
+                                    Icon(
+                                        name=Icons.ARROW_FORWARD_ROUNDED,
+                                        color=colors.BLACK,
+                                        size=20,
+                                    )
+                        ]),
+                    bgcolor=colors.WHITE24,
+                    border_radius=border_radius.all(5),
+                    alignment=alignment.center_left,
+                    on_hover=inf_display_hover,
+                    padding=5,
+                    animate_size=animation.Animation(600,AnimationCurve.EASE_OUT_SINE)
+    )
+
+    inf_video=Column( #Organização das informações em formato de coluna (pág 3)
+                    alignment=MainAxisAlignment.SPACE_AROUND,
+                    controls=[
+                    inf_i3,
+                    inf_i1,
+                    inf_i2
+            ])
+
+    thumbnail=Stack( #Região de amostragem da thumb do vídeo desejado (pág 3)
+                    controls=[
+                            Image(
+                                src=py_get_inf[2],
+                                width=300,
+                                height=270,
+                                fit=ImageFit.FILL,
+                                border_radius=border_radius.all(5),
+                                animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE),
+                        ),
+                            Container(
+                                    width=300,
+                                    height=270, 
+                                    bgcolor=colors.WHITE10,
+                                    alignment=alignment.center,
+                                    border_radius=border_radius.all(5),
+                                    ink=False,
+                                    on_hover=thumb_display_func,
+                                    on_click=baixar_thumb_func,
+                                    animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE),
+                        ),
+        ])
+
+    voltar=Container( #Container voltar (pág 3)
+                    width=10,
+                    height=270,
+                    content=Text(''),
+                    bgcolor=colors.WHITE30,
+                    ink=False,
+                    border_radius=border_radius.all(3),
+                    border=border.all(1,colors.BLACK),
+                    padding=5,
+                    on_hover=voltar_hover_func,
+                    animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE),
+    )
 
     page3=Container( #Página final das opções de vídeo e música
                     height=215,
@@ -937,6 +1068,129 @@ async def programa(janela: Page):
                     padding=5,
     )
 
+#------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------
+#Itens presentes na página 4
+
+    thumbnail_page4=Stack(
+                        controls=[
+                                Image(
+                                    width=130,
+                                    height=130,
+                                    src='https://media.tenor.com/_zWYqfZdneIAAAAM/shocked-face-shocked-meme.gif',  #py_get_inf[2]
+                                    border_radius=border_radius.all(5),
+                                    fit=ImageFit.FILL,
+                                ),
+                                Container(
+                                    width=130,
+                                    height=130,
+                                    bgcolor=colors.WHITE10,
+                                    alignment=alignment.center,
+                                    border_radius=border_radius.all(5),
+                                    ink=False,
+                                    on_hover=thumb_page4_display_func,
+                                    on_click=baixar_thumb_func
+                                )
+                        ]
+    )
+
+    inf_playlist=Column(
+                        controls=[
+                                Container(
+                                        height=35,
+                                        width=70,
+                                        content=Row(
+                                            alignment=MainAxisAlignment.CENTER,
+                                            controls=[
+                                                    Text(
+                                                        value=('Titulo'),
+                                                        color=colors.BLACK,
+                                                        weight=FontWeight.BOLD,
+                                                        size=12,
+                                                    ),
+                                                    Icon(
+                                                        name=Icons.ARROW_FORWARD_ROUNDED,
+                                                        color=colors.BLACK,
+                                                        size=12,
+                                                    )
+                                            ]
+                                        ),
+                                        bgcolor=colors.WHITE12,
+                                        border_radius=border_radius.all(5),
+                                        padding=5,
+                                        on_hover=titulo_page_4_hover,
+                                        animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE)
+                                ),
+                                Container(
+                                        height=35,
+                                        width=70,
+                                        content=Row(
+                                            alignment=MainAxisAlignment.CENTER,
+                                            controls=[
+                                                    Text(
+                                                        value=('Autor'),
+                                                        color=colors.BLACK,
+                                                        weight=FontWeight.BOLD,
+                                                        size=12,
+                                                    ),
+                                                    Icon(
+                                                        name=Icons.ARROW_FORWARD_ROUNDED,
+                                                        color=colors.BLACK,
+                                                        size=12,
+                                                    )
+                                            ]
+                                        ),
+                                        bgcolor=colors.WHITE12,
+                                        border_radius=border_radius.all(5),
+                                        padding=5,
+                                        on_hover=autor_page_4_hover,
+                                        animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE)
+                                ),
+                        ]
+    )
+
+    header_page4=Container(
+                        height=130,
+                        width=450,
+                        content=(
+                                Row(
+                                    alignment=MainAxisAlignment.START,
+                                    spacing=5,
+                                    controls=[
+                                            thumbnail_page4,
+                                            inf_playlist
+                                    ]
+                                )
+                        ),
+                        bgcolor=colors.WHITE12,
+                        border_radius=border_radius.all(5),
+                        padding=5
+    )
+
+    page4=Container(
+                        height=442,
+                        width=450,
+                        content=(
+                                Column(
+                                    alignment=MainAxisAlignment.START,
+                                    controls=[
+                                            header_page4,
+                                            #itens_playlist,
+                                            #botoes_playlist
+                                    ]
+                                )
+                        ),
+                        bgcolor=colors.WHITE24,
+                        border_radius=border_radius.all(5),
+                        padding=5
+        )
+
+#------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------
+#Input inicial de página  
+
     bg=Container( #bg inicial do aplicativo (pág 1)
                 height=janela.window.height-55,
                 width=janela.window.width,
@@ -948,5 +1202,8 @@ async def programa(janela: Page):
                 border_radius=border_radius.all(5),
     )
 
+#------------------------------------------------------------------------------------------
+
     janela.add(bg)
+
 app(programa) 
