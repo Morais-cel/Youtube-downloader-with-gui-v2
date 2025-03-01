@@ -8,23 +8,23 @@ import subprocess
 
 modo=''
 url=''
-py_get_inf=['title','author','thumb_link','description','publish_date','views','resoluções do vídeo']
+py_get_inf_mus_vid=['title','author','thumb_link','description','publish_date','views','resoluções do vídeo']
+py_get_num_videos_playlist=list()
 res_qual=''
 
 def res_qualidade_video_func(e): #Função que define se a resolução de 1080p está disponível no vídeo
-        resolucoes=py_get_inf[6]
+        resolucoes=py_get_inf_mus_vid[6]
         if '1080p' in resolucoes:
             return '1080p'
         else:
             return '720p'
 
-
 def baixar_thumb_func(e): #Função que cria, caso necessário, uma pasta definida como Thumb e salva a imagem do vídeo escolhido
-    thumb_bin= requests.get(py_get_inf[2])
+    thumb_bin= requests.get(py_get_inf_mus_vid[2])
     if not os.path.exists(r'C:\Users\pedro\Desktop\Youtube Download\Thumb'):
         os.makedirs(r'C:\Users\pedro\Desktop\Youtube Download\Thumb')
         pass
-    with open(fr'C:\Users\pedro\Desktop\Youtube Download\Thumb\{py_get_inf[1]}_TMB.png',"wb") as im:
+    with open(fr'C:\Users\pedro\Desktop\Youtube Download\Thumb\{py_get_inf_mus_vid[1]}_TMB.png',"wb") as im:
         im.write(thumb_bin.content)
         pass
     pass
@@ -32,7 +32,7 @@ def baixar_thumb_func(e): #Função que cria, caso necessário, uma pasta defini
 def ajustes_data_lanc_func(e): #Função que define a formatação correta da data de publicação do vídeo
     data_ajustada=dict()
     meses=('jan.','fev.','mar.','abr.','mai.','jun.','jul.','ago.','set.','out.','nov.','dez.')
-    data=str(py_get_inf[4]).split()
+    data=str(py_get_inf_mus_vid[4]).split()
     data.pop()
     data=data[0].split('-')
     data_ajustada['dia']=int(data[2])
@@ -129,12 +129,17 @@ def video_maker_func(video_local,audio_local,output_local):
 
 async def programa(janela: Page): 
 
-    janela.window.width=500  #tamanho correto -> 500
-    janela.window.height=380 #tamanho correto -> 380
+    janela.window.width=450  #tamanho correto -> 500
+    janela.window.height=500 #tamanho correto -> 380
     janela.window.resizable=False
 
-    #-------------------------------------------------------------------------
-    #Funções relacionadas ao pytube
+    janela.theme = Theme(
+        scrollbar_theme=ScrollbarTheme(
+            thickness=0  
+        )
+    )
+#------------------------------------------------------------------------------------------
+#Funções relacionadas ao pytube
 
     def pytube_inf(e): #Função responsável por obter as informações do vídeo
         resoluções=dict()
@@ -152,20 +157,20 @@ async def programa(janela: Page):
             
         return [pt_title,pt_author,pt_thumb_link,pt_description,pt_publish_date,pt_views,resoluções]
 
-    #-------------------------------------------------------------------------
+#------------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------
 #Funções relacionadas a página 1
-    def esc_colum_dowl_func_page3(e): #Função que define a coluna que será colocada no quadro a depender da escolha na página 1
-        global modo
-        if modo=='MUSICA':
-            return botoes_download_musica
-        else:
-            return botoes_download_video
 
-    def link_func(e): #Função responsável por atribuir o modo para a variável global modo
+    def global_modo_def_func(e): #Função responsável por atribuir o valor da variável global modo
         global modo
         modo=e.control.data
+        pass
+
+    def page1_config_caller_page2_func(e): #Função que configura o funcionamento dos botões de chamada da página 2
+        global_modo_def_func(e)
+        page2_animation_surge_func(e)
+        page2_buttons_page1_lock_func(e)
         pass
 
 #------------------------------------------------------------------------------------------
@@ -173,31 +178,31 @@ async def programa(janela: Page):
 #------------------------------------------------------------------------------------------
 #Funções relacionadas a página 2
 
-    def bot_url_func(e): #Função responsável por realizar o processo de bloquear o funcionamento dos botões presentes na página 1 (página inicial)
-        page2.controls[0].offset=transform.Offset(0,0)
+    def page2_buttons_page1_lock_func(e): #Função que trava os botões presentes na pagina 1
         for i in itens.controls:
             i.controls[0].content.controls[1].disabled=True
-        janela.update()    
-        pass
+        janela.update()   
 
-    def config_urlpg_func(e): #Função que configura o funcionamento do botão de chamada da página 2
-        link_func(e)
-        bot_url_func(e)
-        pass
+    def page2_buttons_page1_unlock_func(e): #Função que destrava os botões presentes na pagina 1
+        for i in itens.controls:
+            i.controls[0].content.controls[1].disabled=False
+        janela.update()   
 
-    def prosseguir_func(e): #Função responsável por abrir a página 3 (página de informações da URL)
-        voltar_func(e) #Redefine o estado das páginas 1 e 2 para o inicial, evitando problemas futuros
-        global modo
-        global url
-        global py_get_inf
-        global res_qual
-        url=link.controls[0].value
-        py_get_inf=pytube_inf(e) #Processo para se obter as informações do vídeo presente na URL informada
-        res_qual=res_qualidade_video_func(e)
-        thumbnail.controls[0].src=py_get_inf[2] #Atualização da imagem da thumbnail
-        botoes_download_video.controls[1].content.value=f'Qualidade ({res_qual})'
-        link.controls[0].value='' #Resetando o valor do textfield do link para evitar futuros problemas
+    def page2_button_prosseguir_lock_unlock_func(e): #Função que trava o botão prosseguir na página 2 quando o textfield estiver vazio
+        if link.controls[0].value=='':
+            link.controls[1].controls[1].disabled=True
+            janela.update()
+        else:
+            link.controls[1].controls[1].disabled=False
+            janela.update()
+
+    def page2_button_voltar_config_func(e): #Função responsável por realizar o processo de fechar a página 2 
+        page2_buttons_page1_unlock_func(e)
+        page2_animation_unsurge_func(e)
+
+    def page2_button_prosseguir_config_func(e): #Função responsável por abrir a página 3 ou página 4
         if modo=='MUSICA' or modo=='VIDEO':
+            pytube_music_video_func(e)
             janela.window.width=800
             janela.window.height=270
             janela.clean()
@@ -211,30 +216,42 @@ async def programa(janela: Page):
             #page4
         pass
 
-    def url_value_func(e): #Função que trava o botão prosseguir na página dois quando o textfield estiver vazio
-        if link.controls[0].value=='':
-            link.controls[1].controls[1].disabled=True
-            janela.update()
-        else:
-            link.controls[1].controls[1].disabled=False
-            janela.update()
+    def pytube_music_video_func(e): #Função que adquire as informações do vídeo selecionado para as opções de "VIDEO" e "MUSICA"
+    #--------------------------------------------
+    #Definindo variáveis globais
 
-    def voltar_func(e): #Função responsável por realizar o processo de fechar a segunda página (página da URL) e liberar o funcionamento dos botões presentes na página 1 (página inicial)
+        global modo
+        global url
+        global py_get_inf_mus_vid
+        global res_qual
+
+    #--------------------------------------------
+
+        url=link.controls[0].value
+        py_get_inf_mus_vid=pytube_inf(e) #Processo para se obter as informações do vídeo presente na URL informada
+        res_qual=res_qualidade_video_func(e) #Processo de adquirir a maior qualidade presente no vídeo (1080p ou 720p)
+        thumbnail.controls[0].src=py_get_inf_mus_vid[2] #Atualização da imagem da thumbnail
+        botoes_download_video.controls[1].content.value=f'Qualidade ({res_qual})' #Retorna o texto para o container coluna download na página 3
+        link.controls[0].value='' #Resetando o valor do textfield do link para evitar futuros problemas
+
+    def page2_animation_surge_func(e): #Função que realiza o processo da animação de surgimento da página 2
+        page2.controls[0].offset=transform.Offset(0,0)
+        janela.update()  
+
+    def page2_animation_unsurge_func(e): #Função que realiza o processo da animação de desaparecimento da página 2
         page2.controls[0].offset=transform.Offset(0,1)
-        for i in itens.controls:
-            i.controls[0].content.controls[1].disabled=False
-        janela.update()     
+        janela.update()  
 
 #------------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------
 #Funções relacionadas a página 3
 
-    def autor_display_hover(e): #Função que define o processo de hover para o container com informações do autor do vídeo
+    def page3_author_hover_func(e): #Função que realiza o processo de hover do container que contem as informações do autor do vídeo
         if e.data=='true': #Mouse EM CIMA do container
             e.control.width=417
             e.control.content=Text(
-                                value=(py_get_inf[1]),
+                                value=(py_get_inf_mus_vid[1]),
                                 color=colors.BLACK,
                                 size=17,
                                 max_lines=1,
@@ -260,7 +277,7 @@ async def programa(janela: Page):
         janela.update()
         pass
 
-    def download_hover_func(e): #Função responsável pelo funcionamento pela barra de download na página 3
+    def page3_download_hover_func(e): #Função responsável pelo funcionamento pela barra de download na página 3
         if e.data=='true': #Mouse EM CIMA do container
             e.control.width=130
             e.control.border_radius=border_radius.all(5)
@@ -285,7 +302,7 @@ async def programa(janela: Page):
                                             name=Icons.ARROW_DOWNWARD_ROUNDED,
                                             color=colors.BLACK
                                         ),
-                                        esc_colum_dowl_func_page3(e) #Função irá definir quais funções serão chamados para a coluna a depender de qual opção de download foi escolhida na página 1
+                                        page3_column_choice_mode_func(e) #Função irá definir quais funções serão chamados para a coluna a depender de qual opção de download foi escolhida na página 1
                                 ])
         else: #Mouse FORA do container
             e.control.width=10
@@ -295,7 +312,7 @@ async def programa(janela: Page):
         janela.update()
         pass
 
-    def inf_display_hover(e):
+    def page3_inf_hover_func(e): #Função que realiza o processo de hover do container que contem as informações do vídeo
         data=dict()
         data=ajustes_data_lanc_func(e) #Chama o dicionário que informa a data de publicação do vídeo
         if e.data=='true': #Mouse EM CIMA do container
@@ -328,7 +345,7 @@ async def programa(janela: Page):
                                                                                                                         ),
                                                                                                         ),
                                                                                                         Text( #Valor de visualizações do vídeo
-                                                                                                            value=f' {py_get_inf[5]:,} visualizações |'.replace(',','.'),
+                                                                                                            value=f' {py_get_inf_mus_vid[5]:,} visualizações |'.replace(',','.'),
                                                                                                             color=colors.BLACK,
                                                                                                             size=15,
                                                                                                             weight=FontWeight.BOLD,
@@ -372,7 +389,7 @@ async def programa(janela: Page):
                                                                 width=446,
                                                                 height=158,
                                                                 content=Text(
-                                                                            value=py_get_inf[3],
+                                                                            value=py_get_inf_mus_vid[3],
                                                                             color=colors.BLACK,
                                                                             weight=FontWeight.BOLD,
                                                                             size=11
@@ -409,11 +426,11 @@ async def programa(janela: Page):
         janela.update()
         pass
 
-    def titulo_display_hover(e): #Função que define o processo de hover para o container com informações do título do vídeo
+    def page3_title_hover_func(e): #Função que define o processo de hover para o container com informações do título do vídeo
         if e.data=='true': #Mouse EM CIMA do container
             e.control.width=417
             e.control.content=Text(
-                                value=(py_get_inf[0]),
+                                value=(py_get_inf_mus_vid[0]),
                                 color=colors.BLACK,
                                 size=17,
                                 max_lines=1,
@@ -439,7 +456,7 @@ async def programa(janela: Page):
         janela.update()
         pass
 
-    def thumb_display_func(e): #Função que possibilita o efeito de surgimento do container presente por cima da imagem definida como THUMBNAIL
+    def page3_thumb_hover_func(e): #Função que possibilita o efeito de surgimento do container presente por cima da imagem definida como THUMBNAIL
         if e.data=='true': #Mouse EM CIMA do container
             e.control.bgcolor=colors.WHITE38
             e.control.content=Column(
@@ -463,18 +480,17 @@ async def programa(janela: Page):
             e.control.content=Text('')
         e.control.update()
 
-    def voltar_page3_func(e): #Função responsável por retornar ao estado de página 2 
+    def page3_container_voltar_press_config_func(e): #Função que configura o funcionamento do 'botão' voltar na página 3
         janela.window.width=500
         janela.window.height=380
-        voltar_hover_func(e)
-        url_value_func(e)
-        bot_url_func(e)
+        page3_container_voltar_hover_func(e) #Retorna o container com a função voltar para o estado inicial
+        page2_button_prosseguir_lock_unlock_func(e) #Bloqueia novamente o botão prosseguir na página 2
         janela.clean()
         janela.add(bg)
         janela.update()
         pass
 
-    def voltar_hover_func(e): #Função que define o processo de hover para o container resposável por realizar a ação de voltar 
+    def page3_container_voltar_hover_func(e): #Função que define o processo de hover para o container resposável por realizar a ação de voltar 
         if e.data=='true': #Mouse EM CIMA do container
             e.control.width=50
             e.control.border_radius=border_radius.all(5)
@@ -495,7 +511,7 @@ async def programa(janela: Page):
                                         )
                             ])
             thumbnail.width=260
-            e.control.on_click=voltar_page3_func
+            e.control.on_click=page3_container_voltar_press_config_func
         else: #Mouse FORA do container
             e.control.width=10
             thumbnail.width=300
@@ -504,12 +520,19 @@ async def programa(janela: Page):
         janela.update()
         pass
 
+    def page3_column_choice_mode_func(e): #Função que define a coluna que será colocada no quadro a depender da escolha na página 1
+        global modo
+        if modo=='MUSICA':
+            return botoes_download_musica
+        else:
+            return botoes_download_video
+
 #------------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------
 #Funções relacionadas a página 4
 
-    def thumb_page4_display_func(e): #Função que possibilita o efeito de surgimento do container presente por cima da imagem definida como THUMBNAIL_page4
+    def page4_thumb_hover_fu(e): #Função que possibilita o efeito de surgimento do container presente por cima da imagem definida como THUMBNAIL_page4
         if e.data=='true':
             e.control.bgcolor=colors.WHITE38
             e.control.content=Column(
@@ -535,11 +558,11 @@ async def programa(janela: Page):
             e.control.content=Text('')
         e.control.update()
 
-    def titulo_page_4_hover(e):
+    def page4_title_hover_func(e):
         if e.data=='true':
             e.control.width=259
             e.control.content=Text(
-                                value=(py_get_inf[0]),
+                                value=(py_get_inf_mus_vid[0]),
                                 color=colors.BLACK,
                                 size=12,
                                 max_lines=1,
@@ -567,11 +590,11 @@ async def programa(janela: Page):
         janela.update()
         pass
 
-    def autor_page_4_hover(e):
+    def page4_author_hover_func(e):
         if e.data=='true':
             e.control.width=259
             e.control.content=Text(
-                                value=(py_get_inf[1]),
+                                value=(py_get_inf_mus_vid[1]),
                                 color=colors.BLACK,
                                 size=12,
                                 max_lines=1,
@@ -638,7 +661,7 @@ async def programa(janela: Page):
                                 icon=Icons.ARROW_FORWARD_ROUNDED,
                                 icon_color=colors.BLACK,
                                 icon_size=20,
-                                on_click=config_urlpg_func,
+                                on_click=page1_config_caller_page2_func,
                                 data='VIDEO',
                                 disabled=False,
                             )  
@@ -668,7 +691,7 @@ async def programa(janela: Page):
                             IconButton(
                                 icon=Icons.ARROW_FORWARD_ROUNDED,
                                 icon_color=colors.BLACK,
-                                on_click=config_urlpg_func,
+                                on_click=page1_config_caller_page2_func,
                                 data='MUSICA',
                                 icon_size=20
                             )
@@ -698,7 +721,7 @@ async def programa(janela: Page):
                             IconButton(
                                 icon=Icons.ARROW_FORWARD_ROUNDED,
                                 icon_color=colors.BLACK,
-                                on_click=config_urlpg_func,
+                                on_click=page1_config_caller_page2_func,
                                 data='PLAYLIST',
                                 icon_size=20
                             )
@@ -755,7 +778,7 @@ async def programa(janela: Page):
                         label_style=TextStyle(
                             color=colors.RED_900
                         ),
-                        on_change=url_value_func,
+                        on_change=page2_button_prosseguir_lock_unlock_func,
                     ),
                     Row(alignment=MainAxisAlignment.SPACE_BETWEEN,
                         controls=[
@@ -769,7 +792,7 @@ async def programa(janela: Page):
                                 bgcolor=colors.RED_900,
                                 color=colors.BLACK
                             ),
-                            on_click=voltar_func,
+                            on_click=page2_button_voltar_config_func,
                         ),
                         ElevatedButton(
                             content=Row(
@@ -786,7 +809,7 @@ async def programa(janela: Page):
                                         shape=RoundedRectangleBorder(radius=10),
                                         bgcolor=colors.RED_900,
                                     ),
-                                on_click=prosseguir_func,
+                                on_click=page2_button_prosseguir_config_func,
                                 disabled=True
                         ),
                     ])
@@ -916,7 +939,7 @@ async def programa(janela: Page):
                         border_radius=border_radius.all(3),
                         border=border.all(1,colors.BLACK),
                         padding=5,
-                        on_hover=download_hover_func,
+                        on_hover=page3_download_hover_func,
                         animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE),
     )
 
@@ -941,7 +964,7 @@ async def programa(janela: Page):
                     bgcolor=colors.WHITE24,
                     border_radius=border_radius.all(5),
                     alignment=alignment.center,
-                    on_hover=titulo_display_hover,
+                    on_hover=page3_title_hover_func,
                     padding=5,
                     animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE)
     )
@@ -966,7 +989,7 @@ async def programa(janela: Page):
                     bgcolor=colors.WHITE24,
                     border_radius=border_radius.all(5),
                     alignment=alignment.center_left,
-                    on_hover=autor_display_hover,
+                    on_hover=page3_author_hover_func,
                     padding=5,
                     animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE)
     )
@@ -992,7 +1015,7 @@ async def programa(janela: Page):
                     bgcolor=colors.WHITE24,
                     border_radius=border_radius.all(5),
                     alignment=alignment.center_left,
-                    on_hover=inf_display_hover,
+                    on_hover=page3_inf_hover_func,
                     padding=5,
                     animate_size=animation.Animation(600,AnimationCurve.EASE_OUT_SINE)
     )
@@ -1008,7 +1031,7 @@ async def programa(janela: Page):
     thumbnail=Stack( #Região de amostragem da thumb do vídeo desejado (pág 3)
                     controls=[
                             Image(
-                                src=py_get_inf[2],
+                                src=py_get_inf_mus_vid[2],
                                 width=300,
                                 height=270,
                                 fit=ImageFit.FILL,
@@ -1022,7 +1045,7 @@ async def programa(janela: Page):
                                     alignment=alignment.center,
                                     border_radius=border_radius.all(5),
                                     ink=False,
-                                    on_hover=thumb_display_func,
+                                    on_hover=page3_thumb_hover_func,
                                     on_click=baixar_thumb_func,
                                     animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE),
                         ),
@@ -1037,7 +1060,7 @@ async def programa(janela: Page):
                     border_radius=border_radius.all(3),
                     border=border.all(1,colors.BLACK),
                     padding=5,
-                    on_hover=voltar_hover_func,
+                    on_hover=page3_container_voltar_hover_func,
                     animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE),
     )
 
@@ -1073,12 +1096,12 @@ async def programa(janela: Page):
 #------------------------------------------------------------------------------------------
 #Itens presentes na página 4
 
-    thumbnail_page4=Stack(
+    thumbnail_playlist_page4=Stack(
                         controls=[
                                 Image(
                                     width=130,
                                     height=130,
-                                    src='https://media.tenor.com/_zWYqfZdneIAAAAM/shocked-face-shocked-meme.gif',  #py_get_inf[2]
+                                    src='https://media.tenor.com/_zWYqfZdneIAAAAM/shocked-face-shocked-meme.gif',  #py_get_inf_mus_vid[2]
                                     border_radius=border_radius.all(5),
                                     fit=ImageFit.FILL,
                                 ),
@@ -1089,10 +1112,31 @@ async def programa(janela: Page):
                                     alignment=alignment.center,
                                     border_radius=border_radius.all(5),
                                     ink=False,
-                                    on_hover=thumb_page4_display_func,
+                                    on_hover=page4_thumb_hover_fu,
                                     on_click=baixar_thumb_func
                                 )
                         ]
+    )
+
+    thumb_video_atual_page4=Stack(
+                                controls=[
+                                        Image(
+                                            width=130,
+                                            src='https://media.tenor.com/_zWYqfZdneIAAAAM/shocked-face-shocked-meme.gif',  #py_get_inf_playlist[2]
+                                            border_radius=border_radius.all(5),
+                                            fit=ImageFit.FILL,
+                                        ),
+                                        Container(
+                                            width=130,
+                                            height=130,
+                                            bgcolor=colors.WHITE10,
+                                            alignment=alignment.center,
+                                            border_radius=border_radius.all(5),
+                                            ink=False,
+                                            on_hover=page4_thumb_hover_fu,
+                                            on_click=baixar_thumb_func
+                                        )
+                                ]
     )
 
     inf_playlist=Column(
@@ -1119,7 +1163,7 @@ async def programa(janela: Page):
                                         bgcolor=colors.WHITE12,
                                         border_radius=border_radius.all(5),
                                         padding=5,
-                                        on_hover=titulo_page_4_hover,
+                                        on_hover=page4_title_hover_func,
                                         animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE)
                                 ),
                                 Container(
@@ -1144,9 +1188,49 @@ async def programa(janela: Page):
                                         bgcolor=colors.WHITE12,
                                         border_radius=border_radius.all(5),
                                         padding=5,
-                                        on_hover=autor_page_4_hover,
+                                        on_hover=page4_author_hover_func,
                                         animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE)
                                 ),
+                                Container(
+                                        height=30,
+                                        width=199,
+                                        content=Row(
+                                                    spacing=4,
+                                                    controls=[
+                                                            Container(
+                                                                    width=50,
+                                                                    content=Text(
+                                                                                value=f'XX/XX',
+                                                                                color=colors.BLACK,
+                                                                                weight=FontWeight.BOLD,
+                                                                                size=12,),
+                                                                    bgcolor=colors.RED_900,
+                                                                    border_radius=border_radius.all(5),
+                                                                    padding=4
+                                                            ),
+                                                            Icon(
+                                                                name=Icons.ARROW_FORWARD_ROUNDED,
+                                                                color=colors.BLACK,
+                                                                size=14
+                                                            ),
+                                                            Container(
+                                                                    width=120,
+                                                                    content=Text(
+                                                                                value=f'00:00:00/00:00:00',
+                                                                                color=colors.BLACK,
+                                                                                weight=FontWeight.BOLD,
+                                                                                size=12,
+                                                                                text_align=TextAlign.CENTER),
+                                                                    bgcolor=colors.RED_900,
+                                                                    border_radius=border_radius.all(5),
+                                                                    padding=4
+                                                            )
+                                                ]
+                                        ),
+                                        bgcolor=colors.WHITE10,
+                                        border_radius=border_radius.all(5),
+                                        padding=3
+                                )
                         ]
     )
 
@@ -1158,7 +1242,7 @@ async def programa(janela: Page):
                                     alignment=MainAxisAlignment.START,
                                     spacing=5,
                                     controls=[
-                                            thumbnail_page4,
+                                            thumbnail_playlist_page4,
                                             inf_playlist
                                     ]
                                 )
@@ -1168,23 +1252,157 @@ async def programa(janela: Page):
                         padding=5
     )
 
-    page4=Container(
-                        height=442,
-                        width=450,
-                        content=(
-                                Column(
-                                    alignment=MainAxisAlignment.START,
+    video_atual_numerador_page4=Container(
+                                        width=30,
+                                        height=25,
+                                        content=Text(
+                                                    value='XX',
+                                                    color=colors.BLACK,
+                                                    weight=FontWeight.BOLD
+                                                    ),
+                                        bgcolor=colors.RED_900,
+                                        border_radius=border_radius.all(5),
+                                        padding=2,
+                                        alignment=alignment.top_center
+    )
+
+    video_atual_estrutura_playlist=Row(
+                                    spacing=5,
                                     controls=[
-                                            header_page4,
-                                            #itens_playlist,
-                                            #botoes_playlist
+                                            Checkbox(
+                                                    check_color=colors.BLACK,
+                                                    active_color=colors.RED_900,
+                                                    hover_color=colors.WHITE10,
+                                                    splash_radius=0,
+                                                    shape=RoundedRectangleBorder(radius=4)
+                                            ),
+                                            thumb_video_atual_page4,
+                                            Column(
+                                                alignment=MainAxisAlignment.END,
+                                                spacing=16,
+                                                controls=[
+                                                        Container(
+                                                            width=200,
+                                                            height=50,
+                                                            content=Text(
+                                                                        value='asddsadlkasndansdasdkansdlknasdknas;daslkdnasdasdasdasdasddsadlkasndansdasdkansdlknasdknas;daslkdnasdasdasdasd',
+                                                                        color=colors.BLACK,
+                                                                        size=12,
+                                                                        weight=FontWeight.BOLD,
+                                                                        max_lines=2,
+                                                                        overflow=TextOverflow.ELLIPSIS
+                                                                    ),
+                                                            bgcolor=colors.RED_900,
+                                                            border_radius=border_radius.all(5),
+                                                            padding=5
+                                                        ),
+                                                        Row(
+                                                            spacing=104,
+                                                            width=212,
+                                                            alignment=MainAxisAlignment.END,
+                                                            controls=[
+                                                                    Container(
+                                                                            width=80,
+                                                                            height=25,
+                                                                            content=Text(
+                                                                                        value='00:00:00',
+                                                                                        color=colors.BLACK,
+                                                                                        size=13,
+                                                                                        weight=FontWeight.BOLD,
+                                                                                    ),
+                                                                            bgcolor=colors.RED_900,
+                                                                            border_radius=border_radius.all(5),
+                                                                            padding=5,
+                                                                            alignment=alignment.top_center
+                                                                    ),
+                                                                    video_atual_numerador_page4
+                                                            ]
+                                                        )
+                                                ]
+                                            ),
                                     ]
+    )
+
+    video_atual_playlist=Container(
+                            width=450,
+                            height=100,
+                            content=video_atual_estrutura_playlist,
+                            bgcolor=colors.WHITE10,
+                            border_radius=border_radius.all(5),
+                            padding=5
+    )
+
+    itens_playlist_estrut=Container(
+                                    width=450,
+                                    height=258,
+                                    content=Column(
+                                                    scroll='hidden',
+                                                    controls=[
+                                                            video_atual_playlist,
+                                                            video_atual_playlist,
+                                                            video_atual_playlist,
+                                                            video_atual_playlist,
+                                                    ],
+                                                    
+                                    ),
+                                    bgcolor=colors.WHITE10,
+                                    border_radius=border_radius.all(5),
+                                    padding=5,
+    )
+
+    botoes_playlist=Row(
+                        width=442,
+                        alignment=MainAxisAlignment.SPACE_BETWEEN,
+                        controls=[
+                                ElevatedButton(
+                                            text='VOLTAR',
+                                            color=colors.BLACK,
+                                            icon=Icons.ARROW_BACK_ROUNDED,
+                                            icon_color=colors.BLACK,
+                                            style=ButtonStyle(
+                                                            shape=RoundedRectangleBorder(radius=10),
+                                                            bgcolor=colors.RED_900,
+                                            ),
+                                ),
+                                ElevatedButton(
+                                            content=Row(
+                                                        controls=[
+                                                                Text(
+                                                                    value='PROSSEGUIR',
+                                                                    color=colors.BLACK
+                                                                ),
+                                                                Icon(
+                                                                    name=Icons.ARROW_FORWARD_ROUNDED,
+                                                                    color=colors.BLACK
+                                                                )
+                                                        ]
+                                            ),
+                                            style=ButtonStyle(
+                                                            shape=RoundedRectangleBorder(radius=10),
+                                                            bgcolor=colors.RED_900,
+                                            )
                                 )
-                        ),
-                        bgcolor=colors.WHITE24,
-                        border_radius=border_radius.all(5),
-                        padding=5
-        )
+                        ]
+    )
+
+    page4=Container(
+                    height=442,
+                    width=450,
+                    content=(
+                            Column(
+                                alignment=MainAxisAlignment.START,
+                                spacing=6,
+                                controls=[
+                                        header_page4,
+                                        itens_playlist_estrut,
+                                        botoes_playlist
+                                ]
+                            )
+                    ),
+                    bgcolor=colors.WHITE24,
+                    border_radius=border_radius.all(5),
+                    padding=5
+    )
 
 #------------------------------------------------------------------------------------------
 
@@ -1204,6 +1422,6 @@ async def programa(janela: Page):
 
 #------------------------------------------------------------------------------------------
 
-    janela.add(bg)
+    janela.add(page4)
 
 app(programa) 
