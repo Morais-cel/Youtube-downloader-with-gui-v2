@@ -9,7 +9,8 @@ import subprocess
 modo=''
 url=''
 py_get_inf_mus_vid=['title','author','thumb_link','description','publish_date','views','resoluções do vídeo']
-py_get_num_videos_playlist=list()
+py_get_inf_playlist=['title','author','thumb_link','quantidade_videos','videos_playlist_urls']
+py_get_inf_videos_playlist=[['atual_title','tual_thumb_url','atual_tempo_video']]
 res_qual=''
 
 def res_qualidade_video_func(e): #Função que define se a resolução de 1080p está disponível no vídeo
@@ -40,6 +41,13 @@ def ajustes_data_lanc_func(e): #Função que define a formatação correta da da
     data_ajustada['ano']=int(data[0])
     return data_ajustada
 
+def ajuste_tempo_video_func(tamanho_s):
+    min=tamanho_s//60
+    seg=tamanho_s%60
+    hora=min//60
+    min=min%60
+    return f'{hora}:{min}:{seg}'
+    pass
 def musica_download_m4a(e): #Função que baixa somente o aúdio do vídeo selecionado, fomato -> M4A
     yt=pt.YouTube(url)
     pasta_principal=r'C:\Users\pedro\Desktop\Youtube Download\Música\M4A' #Local onde o arquivo o arquivo princiap será salvo
@@ -127,10 +135,24 @@ def video_maker_func(video_local,audio_local,output_local):
     ]
     subprocess.run(command)
 
+def py_get_inf_videos_playlist_func(urls):
+    py_get_inf_videos_playlist=list()
+    aux=list()
+    for url_video_atual in urls:
+        yt=pt.YouTube(url_video_atual)
+        yt_atual_title=yt.title
+        yt_atual_thumb_url=yt.thumbnail_url
+        yt_atual_tempo_video=ajuste_tempo_video_func(yt.length)
+        aux=[yt_atual_title,yt_atual_thumb_url,yt_atual_tempo_video]
+        py_get_inf_videos_playlist.append(aux)
+        aux=['']
+    print(py_get_inf_videos_playlist)
+    pass
+
 async def programa(janela: Page): 
 
-    janela.window.width=450  #tamanho correto -> 500
-    janela.window.height=500 #tamanho correto -> 380
+    janela.window.width=500  #tamanho correto -> 500
+    janela.window.height=380 #tamanho correto -> 380
     janela.window.resizable=False
 
     janela.theme = Theme(
@@ -141,7 +163,7 @@ async def programa(janela: Page):
 #------------------------------------------------------------------------------------------
 #Funções relacionadas ao pytube
 
-    def pytube_inf(e): #Função responsável por obter as informações do vídeo
+    def py_get_inf_mus_vid_func(e): #Função responsável por obter as informações do vídeo
         resoluções=dict()
         yt=pt.YouTube(url)
         stream=yt.streams.filter(adaptive=True,file_extension='mp4')
@@ -157,6 +179,14 @@ async def programa(janela: Page):
             
         return [pt_title,pt_author,pt_thumb_link,pt_description,pt_publish_date,pt_views,resoluções]
 
+    def py_get_inf_playlist_func(e):
+        pl=pt.Playlist(url)
+        pl_title=pl.title
+        pl_author=pl.owner
+        pl_thumb_link=pl.thumbnail_url
+        pl_quantidade_videos=pl.length
+        videos_playlist_urls=pl.video_urls
+        return [pl_title,pl_author,pl_thumb_link,pl_quantidade_videos,videos_playlist_urls]
 #------------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------
@@ -209,18 +239,17 @@ async def programa(janela: Page):
             janela.update()
             janela.add(page3)
         else:
+            pytube_playlist_func(e)
             janela.window.width=450
             janela.window.height=500
-            janela.window.resizable=False
             janela.clean()
-            #page4
+            janela.update()
+            janela.add(page4)
         pass
 
     def pytube_music_video_func(e): #Função que adquire as informações do vídeo selecionado para as opções de "VIDEO" e "MUSICA"
     #--------------------------------------------
     #Definindo variáveis globais
-
-        global modo
         global url
         global py_get_inf_mus_vid
         global res_qual
@@ -228,11 +257,29 @@ async def programa(janela: Page):
     #--------------------------------------------
 
         url=link.controls[0].value
-        py_get_inf_mus_vid=pytube_inf(e) #Processo para se obter as informações do vídeo presente na URL informada
+        py_get_inf_mus_vid=py_get_inf_mus_vid_func(e) #Processo para se obter as informações do vídeo presente na URL informada
         res_qual=res_qualidade_video_func(e) #Processo de adquirir a maior qualidade presente no vídeo (1080p ou 720p)
         thumbnail.controls[0].src=py_get_inf_mus_vid[2] #Atualização da imagem da thumbnail
         botoes_download_video.controls[1].content.value=f'Qualidade ({res_qual})' #Retorna o texto para o container coluna download na página 3
         link.controls[0].value='' #Resetando o valor do textfield do link para evitar futuros problemas
+
+    def pytube_playlist_func(e):
+    #--------------------------------------------------------------------
+    #Definindo as variáveis globais trabalhadas
+
+        global py_get_inf_playlist
+        global url
+    #--------------------------------------------------------------------
+
+        url=link.controls[0].value
+        py_get_inf_playlist=py_get_inf_playlist_func(e) #Processo para se obter as informações da playlist presente na URL informada
+        py_get_inf_videos_playlist=py_get_inf_playlist[4]
+        py_get_inf_videos_playlist_func(py_get_inf_videos_playlist)
+        thumbnail_playlist_page4.controls[0].src=py_get_inf_playlist[2] #Atualização da imagem da thumbnail presente na página 4
+        inf_playlist.controls[2].content.controls[0].content.value=f'XX/{py_get_inf_playlist[3]}'
+        link.controls[0].value='' #Resetando o valor do textfield do link para evitar futuros problemas
+        page4_video_playlist_func(py_get_inf_playlist[4])
+        pass
 
     def page2_animation_surge_func(e): #Função que realiza o processo da animação de surgimento da página 2
         page2.controls[0].offset=transform.Offset(0,0)
@@ -562,7 +609,7 @@ async def programa(janela: Page):
         if e.data=='true':
             e.control.width=259
             e.control.content=Text(
-                                value=(py_get_inf_mus_vid[0]),
+                                value=(py_get_inf_playlist[0]),
                                 color=colors.BLACK,
                                 size=12,
                                 max_lines=1,
@@ -594,7 +641,7 @@ async def programa(janela: Page):
         if e.data=='true':
             e.control.width=259
             e.control.content=Text(
-                                value=(py_get_inf_mus_vid[1]),
+                                value=(py_get_inf_playlist[1]),
                                 color=colors.BLACK,
                                 size=12,
                                 max_lines=1,
@@ -622,7 +669,11 @@ async def programa(janela: Page):
         janela.update()
         pass
 
-
+    def page4_video_playlist_func(valor):
+        videos=[]
+        for video_atual in (valor):
+            videos.append(video_atual_playlist)
+        itens_playlist_estrut.content.controls=videos
 #------------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------
@@ -1285,7 +1336,7 @@ async def programa(janela: Page):
                                                             width=200,
                                                             height=50,
                                                             content=Text(
-                                                                        value='asddsadlkasndansdasdkansdlknasdknas;daslkdnasdasdasdasdasddsadlkasndansdasdkansdlknasdknas;daslkdnasdasdasdasd',
+                                                                        value='',
                                                                         color=colors.BLACK,
                                                                         size=12,
                                                                         weight=FontWeight.BOLD,
@@ -1332,18 +1383,15 @@ async def programa(janela: Page):
                             padding=5
     )
 
+    
     itens_playlist_estrut=Container(
                                     width=450,
                                     height=258,
                                     content=Column(
                                                     scroll='hidden',
                                                     controls=[
-                                                            video_atual_playlist,
-                                                            video_atual_playlist,
-                                                            video_atual_playlist,
-                                                            video_atual_playlist,
+                                                            ''
                                                     ],
-                                                    
                                     ),
                                     bgcolor=colors.WHITE10,
                                     border_radius=border_radius.all(5),
@@ -1422,6 +1470,6 @@ async def programa(janela: Page):
 
 #------------------------------------------------------------------------------------------
 
-    janela.add(page4)
+    janela.add(bg)
 
 app(programa) 

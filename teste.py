@@ -1,3 +1,11 @@
 import pytubefix as pt
 
-playlist=pt.Playlist('https://www.youtube.com/watch?v=7QQzDQceGgU&list=PLjtdUV9p94tofaTtILKR_OopZ0ZPYPV72')
+pl=pt.YouTube('https://www.youtube.com/watch?v=VNkrMLnk_Co')
+
+s=pl.length
+
+m=s//60
+s=s%60
+h=m//60
+m=m%60
+print(h,m,s)
