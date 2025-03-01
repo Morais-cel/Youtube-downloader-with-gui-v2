@@ -10,147 +10,13 @@ modo=''
 url=''
 py_get_inf_mus_vid=['title','author','thumb_link','description','publish_date','views','resoluções do vídeo']
 py_get_inf_playlist=['title','author','thumb_link','quantidade_videos','videos_playlist_urls']
-py_get_inf_videos_playlist=[['atual_title','tual_thumb_url','atual_tempo_video']]
 res_qual=''
-
-def res_qualidade_video_func(e): #Função que define se a resolução de 1080p está disponível no vídeo
-        resolucoes=py_get_inf_mus_vid[6]
-        if '1080p' in resolucoes:
-            return '1080p'
-        else:
-            return '720p'
-
-def baixar_thumb_func(e): #Função que cria, caso necessário, uma pasta definida como Thumb e salva a imagem do vídeo escolhido
-    thumb_bin= requests.get(py_get_inf_mus_vid[2])
-    if not os.path.exists(r'C:\Users\pedro\Desktop\Youtube Download\Thumb'):
-        os.makedirs(r'C:\Users\pedro\Desktop\Youtube Download\Thumb')
-        pass
-    with open(fr'C:\Users\pedro\Desktop\Youtube Download\Thumb\{py_get_inf_mus_vid[1]}_TMB.png',"wb") as im:
-        im.write(thumb_bin.content)
-        pass
-    pass
-
-def ajustes_data_lanc_func(e): #Função que define a formatação correta da data de publicação do vídeo
-    data_ajustada=dict()
-    meses=('jan.','fev.','mar.','abr.','mai.','jun.','jul.','ago.','set.','out.','nov.','dez.')
-    data=str(py_get_inf_mus_vid[4]).split()
-    data.pop()
-    data=data[0].split('-')
-    data_ajustada['dia']=int(data[2])
-    data_ajustada['mes']=meses[int(data[1])-1]
-    data_ajustada['ano']=int(data[0])
-    return data_ajustada
-
-def ajuste_tempo_video_func(tamanho_s):
-    min=tamanho_s//60
-    seg=tamanho_s%60
-    hora=min//60
-    min=min%60
-    return f'{hora}:{min}:{seg}'
-    pass
-def musica_download_m4a(e): #Função que baixa somente o aúdio do vídeo selecionado, fomato -> M4A
-    yt=pt.YouTube(url)
-    pasta_principal=r'C:\Users\pedro\Desktop\Youtube Download\Música\M4A' #Local onde o arquivo o arquivo princiap será salvo
-    audio=yt.streams.filter(only_audio=True).first()
-    if not os.path.exists(pasta_principal): #Criação de pasta MP4 caso não exista
-        os.makedirs(pasta_principal)
-        pass
-    audio.download(output_path=pasta_principal) #Download música 
-    pass
-
-def musica_download_mp3(e): #Função que baixa somente o aúdio do vídeo selecionado, fomato -> MP3
-    yt=pt.YouTube(url)
-    pasta_principal=r'C:\Users\pedro\Desktop\Youtube Download\Música\MP3' #Local onde o arquvio mp3 será salvo
-    pasta_auxiliar=r'C:\Users\pedro\Desktop\Youtube Download\Música\MP4_AUX' #Pasta m4a criada para auxiliar durante a conversão das músicas
-    audio=yt.streams.filter(file_extension='mp4').first()
-    if not os.path.exists(pasta_auxiliar): #Criação de pasta MP4_AUX caso não exista
-        os.makedirs(pasta_auxiliar)
-        pass
-    if not os.path.exists(pasta_principal): #Criação de pasta MP3 caso não exista
-        os.makedirs(pasta_principal)
-        pass
-    audio.download(output_path=pasta_auxiliar) #Download música 
-    for na1,na2, arquivos in os.walk(pasta_auxiliar): #Mapeamento da pasta MP4_AUX
-        for video in arquivos: #Análise dos arquivos existentes na pasta MP4_AUX
-            print(arquivos)
-            conversao=mp.VideoFileClip(os.path.join(pasta_auxiliar,video))
-            nome=str(video).replace('mp4','mp3')
-            conversao.audio.write_audiofile(os.path.join(pasta_principal,nome))
-            conversao.close()
-    shutil.rmtree(pasta_auxiliar) #Excluir pasta temporária MP4_AUX
-    pass
-
-def video_download_fast(e): #Função que baixa o vídeo escolhido resolução 360p
-    yt=pt.YouTube(url)
-    pasta_principal=r'C:\Users\pedro\Desktop\Youtube Download\Video\Download rápido (360p)' #Local onde o arquivo o arquivo princiap será salvo
-    video=yt.streams.filter(res='360p',file_extension='mp4').first() #Definir como será o formato do vídeo
-    if not os.path.exists(pasta_principal): #Criar diretório Download rápido (360p) caso ele não exista
-        os.makedirs(pasta_principal)
-        pass
-    video.download(output_path=pasta_principal) #Download vídeo
-    pass
-
-def video_download_quality(e):
-    video_local=r'C:\Users\pedro\Desktop\Youtube Download\Download qualidade\Video' #Local onde o vídeo sem audio será salvo
-    audio_local=r'C:\Users\pedro\Desktop\Youtube Download\Download qualidade\Audio' #Local onde o audio do vídeo será salvo
-    pasta_principal=r'C:\Users\pedro\Desktop\Youtube Download\Download qualidade'
-    yt=pt.YouTube(url)
-    video=yt.streams.filter(file_extension='mp4',res=f'{res_qual}').first()
-    audio=yt.streams.filter(file_extension='mp4').first()
-    if not os.path.exists(video_local): #Criar pasta do local do vídeo(sem audio), caso não exista
-        os.makedirs(video_local)
-    if not os.path.exists(audio_local): #Criar pasta do local do audio do vídeo, caso não exista
-        os.makedirs(audio_local)
-    video.download(output_path=video_local)
-    audio.download(output_path=audio_local)
-    for i1, i2, arquivos in os.walk(audio_local):
-            for arq_atual in arquivos:
-                video_path=os.path.join(audio_local,arq_atual)
-                audio_path=os.path.join(audio_local,str(arq_atual).replace('mp4','mp3')) 
-                convert_mp4_mp3(video_path,audio_path)
-    video_arquivo=os.path.join(video_local,f'{yt.title}.mp4')
-    audio_arquivo=os.path.join(audio_local,f'{yt.title}.mp3')
-    output_arquivo=os.path.join(pasta_principal,f'{yt.title}.mp4')
-    video_maker_func(video_arquivo,audio_arquivo,output_arquivo)
-    shutil.rmtree(video_local)
-    shutil.rmtree(audio_local)
-
-def convert_mp4_mp3(video_path,audio_path):
-    clip=mp.VideoFileClip(video_path)
-    clip.audio.write_audiofile(audio_path)
-    clip.close()
-    os.remove(video_path)
-
-def video_maker_func(video_local,audio_local,output_local):
-    command=[
-        'ffmpeg',
-        '-i', video_local,
-        '-i', audio_local,
-        '-c:v', 'copy',
-        '-c:a', 'aac',
-        '-map', '0:v:0',
-        '-map', '1:a:0',
-        '-shortest',
-        output_local
-    ]
-    subprocess.run(command)
-
-def py_get_inf_videos_playlist_func(urls):
-    py_get_inf_videos_playlist=list()
-    aux=list()
-    for url_video_atual in urls:
-        yt=pt.YouTube(url_video_atual)
-        yt_atual_title=yt.title
-        yt_atual_thumb_url=yt.thumbnail_url
-        yt_atual_tempo_video=ajuste_tempo_video_func(yt.length)
-        aux=[yt_atual_title,yt_atual_thumb_url,yt_atual_tempo_video]
-        py_get_inf_videos_playlist.append(aux)
-        aux=['']
-    print(py_get_inf_videos_playlist)
-    pass
-
+cont_select=0
+tempo_select='00:00:00'
 async def programa(janela: Page): 
 
+#------------------------------------------------------------------------------------------
+#Funções relacionadas a estrutura da janela do programa
     janela.window.width=500  #tamanho correto -> 500
     janela.window.height=380 #tamanho correto -> 380
     janela.window.resizable=False
@@ -160,6 +26,9 @@ async def programa(janela: Page):
             thickness=0  
         )
     )
+
+#------------------------------------------------------------------------------------------
+
 #------------------------------------------------------------------------------------------
 #Funções relacionadas ao pytube
 
@@ -187,6 +56,144 @@ async def programa(janela: Page):
         pl_quantidade_videos=pl.length
         videos_playlist_urls=pl.video_urls
         return [pl_title,pl_author,pl_thumb_link,pl_quantidade_videos,videos_playlist_urls]
+
+    def py_get_inf_videos_playlist_func(urls):
+        py_get_inf_videos_playlist=list()
+        aux=list()
+        for url_video_atual in urls:
+            yt=pt.YouTube(url_video_atual)
+            yt_atual_title=yt.title
+            yt_atual_thumb_url=yt.thumbnail_url
+            yt_atual_tempo_video=ajuste_tempo_video_func(yt.length)
+            yt_atual_tempo_video_seg=yt.length
+            aux=[yt_atual_title,yt_atual_thumb_url,yt_atual_tempo_video,yt_atual_tempo_video_seg]
+            py_get_inf_videos_playlist.append(aux)
+            aux=['']
+        return py_get_inf_videos_playlist
+
+    def res_qualidade_video_func(e): #Função que define se a resolução de 1080p está disponível no vídeo
+        resolucoes=py_get_inf_mus_vid[6]
+        if '1080p' in resolucoes:
+            return '1080p'
+        else:
+            return '720p'
+
+    def baixar_thumb_func(e): #Função que cria, caso necessário, uma pasta definida como Thumb e salva a imagem do vídeo escolhido
+        thumb_bin= requests.get(py_get_inf_mus_vid[2])
+        if not os.path.exists(r'C:\Users\pedro\Desktop\Youtube Download\Thumb'):
+            os.makedirs(r'C:\Users\pedro\Desktop\Youtube Download\Thumb')
+            pass
+        with open(fr'C:\Users\pedro\Desktop\Youtube Download\Thumb\{py_get_inf_mus_vid[1]}_TMB.png',"wb") as im:
+            im.write(thumb_bin.content)
+            pass
+        pass
+
+    def ajustes_data_lanc_func(e): #Função que define a formatação correta da data de publicação do vídeo
+        data_ajustada=dict()
+        meses=('jan.','fev.','mar.','abr.','mai.','jun.','jul.','ago.','set.','out.','nov.','dez.')
+        data=str(py_get_inf_mus_vid[4]).split()
+        data.pop()
+        data=data[0].split('-')
+        data_ajustada['dia']=int(data[2])
+        data_ajustada['mes']=meses[int(data[1])-1]
+        data_ajustada['ano']=int(data[0])
+        return data_ajustada
+
+    def ajuste_tempo_video_func(tamanho_s):
+        min=tamanho_s//60
+        seg=tamanho_s%60
+        hora=min//60
+        min=min%60
+        return f'{hora:02d}:{min:02d}:{seg:02d}'
+
+    def musica_download_m4a(e): #Função que baixa somente o aúdio do vídeo selecionado, fomato -> M4A
+        yt=pt.YouTube(url)
+        pasta_principal=r'C:\Users\pedro\Desktop\Youtube Download\Música\M4A' #Local onde o arquivo o arquivo princiap será salvo
+        audio=yt.streams.filter(only_audio=True).first()
+        if not os.path.exists(pasta_principal): #Criação de pasta MP4 caso não exista
+            os.makedirs(pasta_principal)
+            pass
+        audio.download(output_path=pasta_principal) #Download música 
+        pass
+
+    def musica_download_mp3(e): #Função que baixa somente o aúdio do vídeo selecionado, fomato -> MP3
+        yt=pt.YouTube(url)
+        pasta_principal=r'C:\Users\pedro\Desktop\Youtube Download\Música\MP3' #Local onde o arquvio mp3 será salvo
+        pasta_auxiliar=r'C:\Users\pedro\Desktop\Youtube Download\Música\MP4_AUX' #Pasta m4a criada para auxiliar durante a conversão das músicas
+        audio=yt.streams.filter(file_extension='mp4').first()
+        if not os.path.exists(pasta_auxiliar): #Criação de pasta MP4_AUX caso não exista
+            os.makedirs(pasta_auxiliar)
+            pass
+        if not os.path.exists(pasta_principal): #Criação de pasta MP3 caso não exista
+            os.makedirs(pasta_principal)
+            pass
+        audio.download(output_path=pasta_auxiliar) #Download música 
+        for na1,na2, arquivos in os.walk(pasta_auxiliar): #Mapeamento da pasta MP4_AUX
+            for video in arquivos: #Análise dos arquivos existentes na pasta MP4_AUX
+                print(arquivos)
+                conversao=mp.VideoFileClip(os.path.join(pasta_auxiliar,video))
+                nome=str(video).replace('mp4','mp3')
+                conversao.audio.write_audiofile(os.path.join(pasta_principal,nome))
+                conversao.close()
+        shutil.rmtree(pasta_auxiliar) #Excluir pasta temporária MP4_AUX
+        pass
+
+    def video_download_fast(e): #Função que baixa o vídeo escolhido resolução 360p
+        yt=pt.YouTube(url)
+        pasta_principal=r'C:\Users\pedro\Desktop\Youtube Download\Video\Download rápido (360p)' #Local onde o arquivo o arquivo princiap será salvo
+        video=yt.streams.filter(res='360p',file_extension='mp4').first() #Definir como será o formato do vídeo
+        if not os.path.exists(pasta_principal): #Criar diretório Download rápido (360p) caso ele não exista
+            os.makedirs(pasta_principal)
+            pass
+        video.download(output_path=pasta_principal) #Download vídeo
+        pass
+
+    def video_download_quality(e):
+        video_local=r'C:\Users\pedro\Desktop\Youtube Download\Download qualidade\Video' #Local onde o vídeo sem audio será salvo
+        audio_local=r'C:\Users\pedro\Desktop\Youtube Download\Download qualidade\Audio' #Local onde o audio do vídeo será salvo
+        pasta_principal=r'C:\Users\pedro\Desktop\Youtube Download\Download qualidade'
+        yt=pt.YouTube(url)
+        video=yt.streams.filter(file_extension='mp4',res=f'{res_qual}').first()
+        audio=yt.streams.filter(file_extension='mp4').first()
+        if not os.path.exists(video_local): #Criar pasta do local do vídeo(sem audio), caso não exista
+            os.makedirs(video_local)
+        if not os.path.exists(audio_local): #Criar pasta do local do audio do vídeo, caso não exista
+            os.makedirs(audio_local)
+        video.download(output_path=video_local)
+        audio.download(output_path=audio_local)
+        for i1, i2, arquivos in os.walk(audio_local):
+                for arq_atual in arquivos:
+                    video_path=os.path.join(audio_local,arq_atual)
+                    audio_path=os.path.join(audio_local,str(arq_atual).replace('mp4','mp3')) 
+                    convert_mp4_mp3(video_path,audio_path)
+        video_arquivo=os.path.join(video_local,f'{yt.title}.mp4')
+        audio_arquivo=os.path.join(audio_local,f'{yt.title}.mp3')
+        output_arquivo=os.path.join(pasta_principal,f'{yt.title}.mp4')
+        video_maker_func(video_arquivo,audio_arquivo,output_arquivo)
+        shutil.rmtree(video_local)
+        shutil.rmtree(audio_local)
+
+    def convert_mp4_mp3(video_path,audio_path):
+        clip=mp.VideoFileClip(video_path)
+        clip.audio.write_audiofile(audio_path)
+        clip.close()
+        os.remove(video_path)
+
+    def video_maker_func(video_local,audio_local,output_local):
+        command=[
+            'ffmpeg',
+            '-i', video_local,
+            '-i', audio_local,
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-map', '0:v:0',
+            '-map', '1:a:0',
+            '-shortest',
+            output_local
+        ]
+        subprocess.run(command)
+
+
 #------------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------
@@ -232,18 +239,16 @@ async def programa(janela: Page):
 
     def page2_button_prosseguir_config_func(e): #Função responsável por abrir a página 3 ou página 4
         if modo=='MUSICA' or modo=='VIDEO':
-            pytube_music_video_func(e)
             janela.window.width=800
             janela.window.height=270
-            janela.clean()
-            janela.update()
+            janela.controls.clear()
+            pytube_music_video_func(e)
             janela.add(page3)
         else:
-            pytube_playlist_func(e)
             janela.window.width=450
             janela.window.height=500
-            janela.clean()
-            janela.update()
+            janela.controls.clear()
+            pytube_playlist_func(e)
             janela.add(page4)
         pass
 
@@ -263,22 +268,25 @@ async def programa(janela: Page):
         botoes_download_video.controls[1].content.value=f'Qualidade ({res_qual})' #Retorna o texto para o container coluna download na página 3
         link.controls[0].value='' #Resetando o valor do textfield do link para evitar futuros problemas
 
-    def pytube_playlist_func(e):
+    def pytube_playlist_func(e): #Função que adquire as informações do vídeo selecionado para a opção de "PLAYLIST"
     #--------------------------------------------------------------------
     #Definindo as variáveis globais trabalhadas
 
         global py_get_inf_playlist
         global url
+        global tempo_select
+
     #--------------------------------------------------------------------
 
         url=link.controls[0].value
         py_get_inf_playlist=py_get_inf_playlist_func(e) #Processo para se obter as informações da playlist presente na URL informada
-        py_get_inf_videos_playlist=py_get_inf_playlist[4]
-        py_get_inf_videos_playlist_func(py_get_inf_videos_playlist)
+        py_get_inf_videos_playlist=py_get_inf_videos_playlist_func(py_get_inf_playlist[4]) #Cria uma lista contendo [título do vídeo,URL thumb,tempo de vídeo]
+        tempo_playlist=page4_total_time(py_get_inf_videos_playlist)
+        inf_playlist.controls[2].content.controls[2].content.value=f'{tempo_select}/{tempo_playlist}'
         thumbnail_playlist_page4.controls[0].src=py_get_inf_playlist[2] #Atualização da imagem da thumbnail presente na página 4
-        inf_playlist.controls[2].content.controls[0].content.value=f'XX/{py_get_inf_playlist[3]}'
+        inf_playlist.controls[2].content.controls[0].content.value=f'{cont_select:02d}/{py_get_inf_playlist[3]:02d}' #Endereça a quantidade de vídeo ao container destinado
         link.controls[0].value='' #Resetando o valor do textfield do link para evitar futuros problemas
-        page4_video_playlist_func(py_get_inf_playlist[4])
+        page4_video_playlist_func(py_get_inf_videos_playlist)
         pass
 
     def page2_animation_surge_func(e): #Função que realiza o processo da animação de surgimento da página 2
@@ -669,11 +677,153 @@ async def programa(janela: Page):
         janela.update()
         pass
 
-    def page4_video_playlist_func(valor):
+    def page4_video_playlist_func(videos_inf):
         videos=[]
-        for video_atual in (valor):
-            videos.append(video_atual_playlist)
+        for i,video_atual in enumerate(videos_inf):
+            videos.append(
+                        Container(
+                            width=450,
+                            height=100,
+                            content=Row(
+                                    spacing=5,
+                                    controls=[
+                                            Checkbox(
+                                                    check_color=colors.BLACK,
+                                                    active_color=colors.RED_900,
+                                                    hover_color=colors.WHITE10,
+                                                    splash_radius=0,
+                                                    shape=RoundedRectangleBorder(radius=4),
+                                                    on_change=pag4_checkbox_func
+                                            ),
+                                            Stack(
+                                                controls=[
+                                                        Image(
+                                                            width=130,
+                                                            src=fr'{video_atual[1]}', 
+                                                            border_radius=border_radius.all(5),
+                                                            fit=ImageFit.FILL,
+                                                        ),
+                                                        Container(
+                                                            width=130,
+                                                            height=130,
+                                                            bgcolor=colors.WHITE10,
+                                                            alignment=alignment.center,
+                                                            border_radius=border_radius.all(5),
+                                                            ink=False,
+                                                            on_hover=page4_thumb_hover_fu,
+                                                            on_click=baixar_thumb_func
+                                                        )
+                                                ]
+                                            ),
+                                            Column(
+                                                alignment=MainAxisAlignment.END,
+                                                spacing=16,
+                                                controls=[
+                                                        Container(
+                                                            width=213,
+                                                            height=50,
+                                                            content=Text(
+                                                                        value=f'{video_atual[0]}',
+                                                                        color=colors.BLACK,
+                                                                        size=12,
+                                                                        weight=FontWeight.BOLD,
+                                                                        max_lines=2,
+                                                                        overflow=TextOverflow.ELLIPSIS
+                                                                    ),
+                                                            bgcolor=colors.RED_900,
+                                                            border_radius=border_radius.all(5),
+                                                            padding=5
+                                                        ),
+                                                        Row(
+                                                            spacing=104,
+                                                            width=212,
+                                                            alignment=MainAxisAlignment.END,
+                                                            controls=[
+                                                                    Container(
+                                                                            width=80,
+                                                                            height=25,
+                                                                            content=Text(
+                                                                                        value=f'{video_atual[2]}',
+                                                                                        color=colors.BLACK,
+                                                                                        size=13,
+                                                                                        weight=FontWeight.BOLD,
+                                                                                    ),
+                                                                            bgcolor=colors.RED_900,
+                                                                            border_radius=border_radius.all(5),
+                                                                            padding=5,
+                                                                            alignment=alignment.top_center
+                                                                    ),
+                                                                    Container(
+                                                                            width=30,
+                                                                            height=25,
+                                                                            content=Text(
+                                                                                        value=f'{(len(videos)+1):02d}',
+                                                                                        color=colors.BLACK,
+                                                                                        weight=FontWeight.BOLD
+                                                                                        ),
+                                                                            bgcolor=colors.RED_900,
+                                                                            border_radius=border_radius.all(5),
+                                                                            padding=2,
+                                                                            alignment=alignment.top_center
+                                                                    )
+                                                            ]
+                                                        )
+                                                ]
+                                            ),
+                                    ]
+                            ),
+                            bgcolor=colors.WHITE10,
+                            border_radius=border_radius.all(5),
+                            padding=5
+                        )
+            )
         itens_playlist_estrut.content.controls=videos
+
+    def page4_total_time(inf_videos):
+        tempos=[]
+        for videos in inf_videos:
+            tempos.append(videos[3])
+            pass
+        tempo_total_playlist=ajuste_tempo_video_func(sum(tempos))
+        return tempo_total_playlist
+
+    def pag4_checkbox_func(e):
+        global cont_select
+        if e.control.value==True:
+            cont_select+=1
+            page4_tempo_cont_func(e)
+        else:
+            cont_select-=1
+            page4_tempo_cont_func(e)
+
+    def page4_tempo_cont_func(e):
+    #--------------------------------------------------------------------
+    #Definindo as variáveis globais trabalhadas
+
+        global tempo_select
+
+    #--------------------------------------------------------------------
+
+        inf_playlist.controls[2].content.controls[0].content.value=f'{cont_select:02d}/{py_get_inf_playlist[3]:02d}'
+        inf_playlist.update()
+        for i in itens_playlist_estrut.content.controls:
+            if i.content.controls[0].value==True:
+                tempo_video=i.content.controls[2].controls[1].controls[0].content.value
+                page4_atualizar_cont_func(tempo_video)
+            pass
+
+    def page4_atualizar_cont_func(tempo_video):
+    #--------------------------------------------------------------------
+    #Definindo as variáveis globais trabalhadas
+
+        global tempo_select
+
+    #--------------------------------------------------------------------
+        tempo_list=tempo_video.split(':')
+        print(tempo_list)
+        pass
+
+
 #------------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------
@@ -1169,27 +1319,6 @@ async def programa(janela: Page):
                         ]
     )
 
-    thumb_video_atual_page4=Stack(
-                                controls=[
-                                        Image(
-                                            width=130,
-                                            src='https://media.tenor.com/_zWYqfZdneIAAAAM/shocked-face-shocked-meme.gif',  #py_get_inf_playlist[2]
-                                            border_radius=border_radius.all(5),
-                                            fit=ImageFit.FILL,
-                                        ),
-                                        Container(
-                                            width=130,
-                                            height=130,
-                                            bgcolor=colors.WHITE10,
-                                            alignment=alignment.center,
-                                            border_radius=border_radius.all(5),
-                                            ink=False,
-                                            on_hover=page4_thumb_hover_fu,
-                                            on_click=baixar_thumb_func
-                                        )
-                                ]
-    )
-
     inf_playlist=Column(
                         controls=[
                                 Container(
@@ -1303,94 +1432,15 @@ async def programa(janela: Page):
                         padding=5
     )
 
-    video_atual_numerador_page4=Container(
-                                        width=30,
-                                        height=25,
-                                        content=Text(
-                                                    value='XX',
-                                                    color=colors.BLACK,
-                                                    weight=FontWeight.BOLD
-                                                    ),
-                                        bgcolor=colors.RED_900,
-                                        border_radius=border_radius.all(5),
-                                        padding=2,
-                                        alignment=alignment.top_center
-    )
-
-    video_atual_estrutura_playlist=Row(
-                                    spacing=5,
-                                    controls=[
-                                            Checkbox(
-                                                    check_color=colors.BLACK,
-                                                    active_color=colors.RED_900,
-                                                    hover_color=colors.WHITE10,
-                                                    splash_radius=0,
-                                                    shape=RoundedRectangleBorder(radius=4)
-                                            ),
-                                            thumb_video_atual_page4,
-                                            Column(
-                                                alignment=MainAxisAlignment.END,
-                                                spacing=16,
-                                                controls=[
-                                                        Container(
-                                                            width=200,
-                                                            height=50,
-                                                            content=Text(
-                                                                        value='',
-                                                                        color=colors.BLACK,
-                                                                        size=12,
-                                                                        weight=FontWeight.BOLD,
-                                                                        max_lines=2,
-                                                                        overflow=TextOverflow.ELLIPSIS
-                                                                    ),
-                                                            bgcolor=colors.RED_900,
-                                                            border_radius=border_radius.all(5),
-                                                            padding=5
-                                                        ),
-                                                        Row(
-                                                            spacing=104,
-                                                            width=212,
-                                                            alignment=MainAxisAlignment.END,
-                                                            controls=[
-                                                                    Container(
-                                                                            width=80,
-                                                                            height=25,
-                                                                            content=Text(
-                                                                                        value='00:00:00',
-                                                                                        color=colors.BLACK,
-                                                                                        size=13,
-                                                                                        weight=FontWeight.BOLD,
-                                                                                    ),
-                                                                            bgcolor=colors.RED_900,
-                                                                            border_radius=border_radius.all(5),
-                                                                            padding=5,
-                                                                            alignment=alignment.top_center
-                                                                    ),
-                                                                    video_atual_numerador_page4
-                                                            ]
-                                                        )
-                                                ]
-                                            ),
-                                    ]
-    )
-
-    video_atual_playlist=Container(
-                            width=450,
-                            height=100,
-                            content=video_atual_estrutura_playlist,
-                            bgcolor=colors.WHITE10,
-                            border_radius=border_radius.all(5),
-                            padding=5
-    )
-
-    
     itens_playlist_estrut=Container(
                                     width=450,
                                     height=258,
                                     content=Column(
                                                     scroll='hidden',
                                                     controls=[
-                                                            ''
+                                                            Container(
+                                                                content=Text('')
+                                                            )
                                                     ],
                                     ),
                                     bgcolor=colors.WHITE10,
