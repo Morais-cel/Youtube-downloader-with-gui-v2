@@ -13,6 +13,7 @@ py_get_inf_playlist=['title','author','thumb_link','quantidade_videos','videos_p
 res_qual=''
 cont_select=0
 tempo_select='00:00:00'
+
 async def programa(janela: Page): 
 
 #------------------------------------------------------------------------------------------
@@ -193,7 +194,6 @@ async def programa(janela: Page):
         ]
         subprocess.run(command)
 
-
 #------------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------
@@ -275,7 +275,7 @@ async def programa(janela: Page):
         global py_get_inf_playlist
         global url
         global tempo_select
-
+        global tempo_playlist
     #--------------------------------------------------------------------
 
         url=link.controls[0].value
@@ -791,38 +791,67 @@ async def programa(janela: Page):
         global cont_select
         if e.control.value==True:
             cont_select+=1
-            page4_tempo_cont_func(e)
         else:
             cont_select-=1
-            page4_tempo_cont_func(e)
+        page4_tempo_cont_func(e)
 
     def page4_tempo_cont_func(e):
     #--------------------------------------------------------------------
     #Definindo as variáveis globais trabalhadas
 
         global tempo_select
-
+        tempo_video=['00:00:00']
     #--------------------------------------------------------------------
 
         inf_playlist.controls[2].content.controls[0].content.value=f'{cont_select:02d}/{py_get_inf_playlist[3]:02d}'
-        inf_playlist.update()
         for i in itens_playlist_estrut.content.controls:
             if i.content.controls[0].value==True:
-                tempo_video=i.content.controls[2].controls[1].controls[0].content.value
-                page4_atualizar_cont_func(tempo_video)
-            pass
+                tempo_video.append(i.content.controls[2].controls[1].controls[0].content.value)
+        print(tempo_video)
+        page4_atualizar_cont_func(tempo_video)
+        inf_playlist.controls[2].content.controls[2].content.value=f'{tempo_select}/{tempo_playlist}'
+        inf_playlist.update()
 
     def page4_atualizar_cont_func(tempo_video):
     #--------------------------------------------------------------------
     #Definindo as variáveis globais trabalhadas
 
         global tempo_select
-
+        tempo_select='00:00:00'
+        s_video=0
     #--------------------------------------------------------------------
-        tempo_list=tempo_video.split(':')
-        print(tempo_list)
-        pass
+        tempo_global=tempo_select.split(':')
 
+        #------------------------------------------
+        #Transformar tempo_list em segundos
+        for item_video in tempo_video:
+            tempo_list=item_video.split(':')
+            s_video=s_video+(int(tempo_list[0])*3600)
+            s_video=s_video+(int(tempo_list[1])*60)
+            s_video=s_video+int(tempo_list[2])
+        #------------------------------------------
+
+        #------------------------------------------
+        #Transformar tempo_list em segundos
+        s_select=int(tempo_global[0])*3600
+        s_select=s_select+(int(tempo_global[1])*60)
+        s_select=s_select+int(tempo_global[2])
+        #------------------------------------------
+
+        #------------------------------------------
+        #Somar valores e retornar já formatado
+        s_select=s_select+s_video
+        print(s_select)
+        tempo_select=ajuste_tempo_video_func(s_select)
+        #------------------------------------------
+
+    def page4_switch_hover_func(e):
+        if e.data=='true':
+            e.control.width=40
+        else:
+            e.control.width=5
+        janela.update()
+        pass
 
 #------------------------------------------------------------------------------------------
 
@@ -1414,6 +1443,16 @@ async def programa(janela: Page):
                         ]
     )
 
+    page4_switch=Container(
+                        width=5,
+                        height=130,
+                        content=Text(''),
+                        bgcolor=colors.WHITE10,
+                        border_radius=border_radius.all(3),
+                        on_hover=page4_switch_hover_func,
+                        animate_size=animation.Animation(400,AnimationCurve.EASE_OUT_SINE)
+    )
+
     header_page4=Container(
                         height=130,
                         width=450,
@@ -1423,7 +1462,14 @@ async def programa(janela: Page):
                                     spacing=5,
                                     controls=[
                                             thumbnail_playlist_page4,
-                                            inf_playlist
+                                            Row(
+                                                alignment=MainAxisAlignment.SPACE_BETWEEN,
+                                                width=260,
+                                                controls=[
+                                                        inf_playlist,
+                                                        page4_switch
+                                                ]
+                                            )
                                     ]
                                 )
                         ),
