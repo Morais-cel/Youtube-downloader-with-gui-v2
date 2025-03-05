@@ -5,6 +5,7 @@ import os
 import moviepy as mp
 import shutil
 import subprocess
+import time
 
 modo=''
 url=''
@@ -32,6 +33,9 @@ async def programa(janela: Page):
 
 #------------------------------------------------------------------------------------------
 #Funções relacionadas ao pytube
+
+#-------------------------------------------
+#Funções de obtenção de informações das urls informadas
 
     def py_get_inf_mus_vid_func(e): #Função responsável por obter as informações do vídeo
         resoluções=dict()
@@ -79,6 +83,45 @@ async def programa(janela: Page):
         else:
             return '720p'
 
+    def res_qualidade_playlist_func(e):
+        list_videos=list()
+        resolucoes=dict()
+        for i in py_get_inf_playlist[4]:
+            yt=pt.YouTube(i)
+            stream=yt.streams.filter(adaptive=True,file_extension='mp4')
+            for res in stream:
+                if res.resolution:
+                    resolucoes[f'{res.resolution}']=True
+            list_videos.append(resolucoes.copy())
+            resolucoes.clear()
+        return list_videos
+
+    def res_quali_get_playlist_func(lista_res_videos):
+        res_1080p=True
+        res_720p=True
+        print(lista_res_videos)
+        for i in lista_res_videos:
+            if '1080p' not in i:
+                res_1080p=False
+                break
+        if res_1080p==False:
+            for i in lista_res_videos:
+                if '720p' not in i:
+                    res_720p=False
+                    break
+            if res_720p==False:
+                return '480p'
+            else:
+                return '720p'
+        else:
+            return '1080p'
+            
+
+#-------------------------------------------
+
+#-------------------------------------------
+#Funções para o download de thumbs
+
     def baixar_thumb_func(e): #Função que cria, caso necessário, uma pasta definida como Thumb e salva a imagem do vídeo escolhido
         thumb_bin= requests.get(py_get_inf_mus_vid[2])
         if not os.path.exists(r'C:\Users\pedro\Desktop\Youtube Download\Thumb'):
@@ -88,6 +131,38 @@ async def programa(janela: Page):
             im.write(thumb_bin.content)
             pass
         pass
+
+    def baixar_thumb_videos_playlist(e):
+        pasta_principal=fr'C:\Users\pedro\Desktop\Youtube Download\Playlist\Thumbs\{py_get_inf_playlist[0]}'
+        req=e.control.data
+        yt=pt.YouTube(py_get_inf_playlist[4][req])
+        url_thumb=yt.thumbnail_url
+        thumb_bin= requests.get(url_thumb)
+        if not os.path.exists(pasta_principal):
+            os.makedirs(pasta_principal)
+            pass
+        with open(os.path.join(pasta_principal,fr'{yt.video_id}.png'),"wb") as im:
+            im.write(thumb_bin.content)
+            pass
+        pass
+
+    def baixar_thumb_todos_videos_playlist(e):
+        for i in range(0,len(py_get_inf_playlist[4])):
+            pasta_principal=fr'C:\Users\pedro\Desktop\Youtube Download\Playlist\Thumbs\{py_get_inf_playlist[0]}'
+            yt=pt.YouTube(py_get_inf_playlist[4][i])
+            url_thumb=yt.thumbnail_url
+            thumb_bin= requests.get(url_thumb)
+            if not os.path.exists(pasta_principal):
+                os.makedirs(pasta_principal)
+                pass
+            with open(os.path.join(pasta_principal,fr'{yt.video_id}.png'),"wb") as im:
+                im.write(thumb_bin.content)
+                pass
+            pass
+#-------------------------------------------
+
+#-------------------------------------------
+#Funções de alteração de formatação de data e tempo
 
     def ajustes_data_lanc_func(e): #Função que define a formatação correta da data de publicação do vídeo
         data_ajustada=dict()
@@ -106,6 +181,11 @@ async def programa(janela: Page):
         hora=min//60
         min=min%60
         return f'{hora:02d}:{min:02d}:{seg:02d}'
+
+#-------------------------------------------
+
+#-------------------------------------------
+#Funções de download de músicas e vídeos únicos
 
     def musica_download_m4a(e): #Função que baixa somente o aúdio do vídeo selecionado, fomato -> M4A
         yt=pt.YouTube(url)
@@ -131,7 +211,6 @@ async def programa(janela: Page):
         audio.download(output_path=pasta_auxiliar) #Download música 
         for na1,na2, arquivos in os.walk(pasta_auxiliar): #Mapeamento da pasta MP4_AUX
             for video in arquivos: #Análise dos arquivos existentes na pasta MP4_AUX
-                print(arquivos)
                 conversao=mp.VideoFileClip(os.path.join(pasta_auxiliar,video))
                 nome=str(video).replace('mp4','mp3')
                 conversao.audio.write_audiofile(os.path.join(pasta_principal,nome))
@@ -174,6 +253,11 @@ async def programa(janela: Page):
         shutil.rmtree(video_local)
         shutil.rmtree(audio_local)
 
+#-------------------------------------------
+
+#-------------------------------------------
+#Funções relacionadas a conversão de arquivos
+
     def convert_mp4_mp3(video_path,audio_path):
         clip=mp.VideoFileClip(video_path)
         clip.audio.write_audiofile(audio_path)
@@ -193,6 +277,103 @@ async def programa(janela: Page):
             output_local
         ]
         subprocess.run(command)
+
+#-------------------------------------------
+
+#-------------------------------------------
+#Funções de download de playlist
+
+    def itens_selecionados_playlist_func(e):
+        itens_selecionados=list()
+        op_selec=e.control.data
+        aux=0
+        for i in itens_playlist_estrut.content.controls:
+            if i.content.controls[0].value==True:
+                itens_selecionados.append(py_get_inf_playlist[4][aux])
+            aux+=1
+        match op_selec:
+            case 'MP3':
+                music_playlist_download_mp3(itens_selecionados)
+                pass
+            case 'M4A':
+                music_playlist_download_m4a(itens_selecionados)
+            case 'RAPIDO':
+                video_playlist_download_fast(itens_selecionados)
+                pass
+            case 'QUALIDADE':
+                video_playlist_download_quality(itens_selecionados)
+                pass
+        pass
+
+    def music_playlist_download_m4a(urls):
+        pasta_principal=fr'C:\Users\pedro\Desktop\Youtube Download\Playlist\M4A\{py_get_inf_playlist[0]}' #Local onde o arquivo o arquivo princiap será salvo
+        for i in urls:
+            yt=pt.YouTube(i)
+            audio=yt.streams.filter(only_audio=True).first()
+            if not os.path.exists(pasta_principal): #Criação de pasta MP4 caso não exista
+                os.makedirs(pasta_principal)
+                pass
+            audio.download(output_path=pasta_principal,filename=f'{yt.video_id}.m4a') #Download música 
+
+    def music_playlist_download_mp3(urls):
+        pasta_principal=fr'C:\Users\pedro\Desktop\Youtube Download\Playlist\MP3\{py_get_inf_playlist[0]}' #Local onde o arquvio mp3 será salvo
+        pasta_auxiliar=r'C:\Users\pedro\Desktop\Youtube Download\Playlist\MP4_AUX' #Pasta m4a criada para auxiliar durante a conversão das músicas
+        for i in urls:
+            yt=pt.YouTube(i)
+            audio=yt.streams.filter(file_extension='mp4').first()
+            if not os.path.exists(pasta_auxiliar): #Criação de pasta MP4_AUX caso não exista
+                os.makedirs(pasta_auxiliar)
+                pass
+            if not os.path.exists(pasta_principal): #Criação de pasta MP3 caso não exista
+                os.makedirs(pasta_principal)
+                pass
+            audio.download(output_path=pasta_auxiliar,filename=f'{yt.video_id}.mp4') #Download música 
+        for na1,na2, arquivos in os.walk(pasta_auxiliar): #Mapeamento da pasta MP4_AUX
+            for video in arquivos: #Análise dos arquivos existentes na pasta MP4_AUX
+                conversao=mp.VideoFileClip(os.path.join(pasta_auxiliar,video))
+                nome=str(video).replace('mp4','mp3')
+                conversao.audio.write_audiofile(os.path.join(pasta_principal,nome))
+                conversao.close()
+        shutil.rmtree(pasta_auxiliar) #Excluir pasta temporária MP4_AUX
+
+    def video_playlist_download_fast(urls):
+        pasta_principal=fr'C:\Users\pedro\Desktop\Youtube Download\Playlist\Download rápido\{py_get_inf_playlist[0]}' #Local onde o arquivo o arquivo princiap será salvo
+        for i in urls:
+            yt=pt.YouTube(i)
+            video=yt.streams.filter(res='360p',file_extension='mp4').first() #Definir como será o formato do vídeo
+            if not os.path.exists(pasta_principal): #Criar diretório Download rápido (360p) caso ele não exista
+                os.makedirs(pasta_principal)
+                pass
+            video.download(output_path=pasta_principal,filename=f'{yt.video_id}.mp4') #Download vídeo
+
+    def video_playlist_download_quality(urls):
+        video_local=fr'C:\Users\pedro\Desktop\Youtube Download\Playlist\Download qualidade\{py_get_inf_playlist[0]}\Video' #Local onde o vídeo sem audio será salvo
+        audio_local=fr'C:\Users\pedro\Desktop\Youtube Download\Playlist\Download qualidade\{py_get_inf_playlist[0]}\Audio' #Local onde o audio do vídeo será salvo
+        pasta_principal=fr'C:\Users\pedro\Desktop\Youtube Download\Playlist\Download qualidade\{py_get_inf_playlist[0]}'
+        for i in urls:
+            yt=pt.YouTube(i)
+            video=yt.streams.filter(file_extension='mp4',res=f'{res_qual}').first()
+            audio=yt.streams.filter(file_extension='mp4').first()
+            if not os.path.exists(video_local): #Criar pasta do local do vídeo(sem audio), caso não exista
+                os.makedirs(video_local)
+            if not os.path.exists(audio_local): #Criar pasta do local do audio do vídeo, caso não exista
+                os.makedirs(audio_local)
+            video.download(output_path=video_local,filename=f'{yt.video_id}.mp4')
+            audio.download(output_path=audio_local,filename=f'{yt.video_id}.mp4')
+            for i1, i2, arquivos in os.walk(audio_local):
+                    for arq_atual in arquivos:
+                        video_path=os.path.join(audio_local,arq_atual)
+                        audio_path=os.path.join(audio_local,str(arq_atual).replace('mp4','mp3')) 
+                        convert_mp4_mp3(video_path,audio_path)
+            video_arquivo=os.path.join(video_local,f'{yt.video_id}.mp4')
+            audio_arquivo=os.path.join(audio_local,f'{yt.video_id}.mp3')
+            output_arquivo=os.path.join(pasta_principal,fr'{yt.video_id}.mp4')
+            video_maker_func(video_arquivo,audio_arquivo,output_arquivo)
+            shutil.rmtree(video_local)
+            shutil.rmtree(audio_local)
+        pass
+
+#-------------------------------------------
 
 #------------------------------------------------------------------------------------------
 
@@ -239,17 +420,19 @@ async def programa(janela: Page):
 
     def page2_button_prosseguir_config_func(e): #Função responsável por abrir a página 3 ou página 4
         if modo=='MUSICA' or modo=='VIDEO':
+            pytube_music_video_func(e)
             janela.window.width=800
             janela.window.height=270
-            janela.controls.clear()
-            pytube_music_video_func(e)
+            janela.clean()
+            janela.update()
             janela.add(page3)
         else:
+            pytube_playlist_func(e)
             janela.window.width=450
             janela.window.height=500
-            janela.controls.clear()
-            pytube_playlist_func(e)
-            janela.add(page4)
+            janela.clean()
+            janela.update()
+            janela.add(Stack_4e5)
         pass
 
     def pytube_music_video_func(e): #Função que adquire as informações do vídeo selecionado para as opções de "VIDEO" e "MUSICA"
@@ -276,6 +459,7 @@ async def programa(janela: Page):
         global url
         global tempo_select
         global tempo_playlist
+        global res_qual
     #--------------------------------------------------------------------
 
         url=link.controls[0].value
@@ -287,6 +471,13 @@ async def programa(janela: Page):
         inf_playlist.controls[2].content.controls[0].content.value=f'{cont_select:02d}/{py_get_inf_playlist[3]:02d}' #Endereça a quantidade de vídeo ao container destinado
         link.controls[0].value='' #Resetando o valor do textfield do link para evitar futuros problemas
         page4_video_playlist_func(py_get_inf_videos_playlist)
+        res_qual=res_quali_get_playlist_func(res_qualidade_playlist_func(e))
+        page5_column_video.controls[2].controls[1].content=Text(
+                                                                value=f'Qualidade ({res_qual})',
+                                                                color=colors.BLACK,
+                                                                size=13
+                                                            )
+        print(res_qual)
         pass
 
     def page2_animation_surge_func(e): #Função que realiza o processo da animação de surgimento da página 2
@@ -541,7 +732,7 @@ async def programa(janela: Page):
         page3_container_voltar_hover_func(e) #Retorna o container com a função voltar para o estado inicial
         page2_button_prosseguir_lock_unlock_func(e) #Bloqueia novamente o botão prosseguir na página 2
         janela.clean()
-        janela.add(bg)
+        janela.add(Stack_1e2)
         janela.update()
         pass
 
@@ -588,6 +779,32 @@ async def programa(janela: Page):
 #Funções relacionadas a página 4
 
     def page4_thumb_hover_fu(e): #Função que possibilita o efeito de surgimento do container presente por cima da imagem definida como THUMBNAIL_page4
+        if e.data=='true':
+            e.control.bgcolor=colors.WHITE38
+            e.control.content=Column(
+                                    alignment=MainAxisAlignment.CENTER,
+                                    horizontal_alignment=CrossAxisAlignment.CENTER,
+                                    controls=[
+                                        Text(
+                                            value=('Clique para baixar todas as imagens.'),
+                                            color=colors.BLACK,
+                                            weight=FontWeight.BOLD,
+                                            size=12,
+                                            overflow=TextOverflow.FADE,
+                                            text_align=TextAlign.CENTER
+                                        ),
+                                        Icon(
+                                            name=Icons.FILE_DOWNLOAD_ROUNDED,
+                                            size=20,
+                                            color=colors.BLACK
+                                        )
+                        ])
+        else: #Mouse FORA do container
+            e.control.bgcolor=colors.WHITE10
+            e.control.content=Text('')
+        e.control.update()
+
+    def page4_thumb_videos_hover_fu(e): 
         if e.data=='true':
             e.control.bgcolor=colors.WHITE38
             e.control.content=Column(
@@ -679,7 +896,8 @@ async def programa(janela: Page):
 
     def page4_video_playlist_func(videos_inf):
         videos=[]
-        for i,video_atual in enumerate(videos_inf):
+        aux=0
+        for video_atual in videos_inf:
             videos.append(
                         Container(
                             width=450,
@@ -710,8 +928,9 @@ async def programa(janela: Page):
                                                             alignment=alignment.center,
                                                             border_radius=border_radius.all(5),
                                                             ink=False,
-                                                            on_hover=page4_thumb_hover_fu,
-                                                            on_click=baixar_thumb_func
+                                                            data=aux,
+                                                            on_hover=page4_thumb_videos_hover_fu,
+                                                            on_click=baixar_thumb_videos_playlist
                                                         )
                                                 ]
                                             ),
@@ -777,6 +996,7 @@ async def programa(janela: Page):
                             padding=5
                         )
             )
+            aux+=1
         itens_playlist_estrut.content.controls=videos
 
     def page4_total_time(inf_videos):
@@ -803,11 +1023,12 @@ async def programa(janela: Page):
         tempo_video=['00:00:00']
     #--------------------------------------------------------------------
 
+        page4_switch_off_func(e)
+        page4_switch_on_func(e)
         inf_playlist.controls[2].content.controls[0].content.value=f'{cont_select:02d}/{py_get_inf_playlist[3]:02d}'
         for i in itens_playlist_estrut.content.controls:
             if i.content.controls[0].value==True:
                 tempo_video.append(i.content.controls[2].controls[1].controls[0].content.value)
-        print(tempo_video)
         page4_atualizar_cont_func(tempo_video)
         inf_playlist.controls[2].content.controls[2].content.value=f'{tempo_select}/{tempo_playlist}'
         inf_playlist.update()
@@ -841,17 +1062,88 @@ async def programa(janela: Page):
         #------------------------------------------
         #Somar valores e retornar já formatado
         s_select=s_select+s_video
-        print(s_select)
         tempo_select=ajuste_tempo_video_func(s_select)
         #------------------------------------------
 
     def page4_switch_hover_func(e):
         if e.data=='true':
-            e.control.width=40
+            e.control.width=55
+            e.control.border_radius=border_radius.all(5)
+            e.control.content=page4_switch
         else:
             e.control.width=5
+            e.control.border_radius=border_radius.all(3)
+            e.control.content=Text('') 
         janela.update()
         pass
+
+    def page4_switch_change_func(e):
+    #--------------------------------------------------------------------
+    #Definindo as variáveis globais trabalhadas
+
+        global cont_select
+        cont_select=0
+
+    #--------------------------------------------------------------------
+        if page4_switch.controls[1].value==True:
+            for i in itens_playlist_estrut.content.controls:
+                i.content.controls[0].value=True
+                cont_select+=1
+        else:
+            for i in itens_playlist_estrut.content.controls:
+                i.content.controls[0].value=False
+        page4_tempo_cont_func(e)
+        janela.update()
+        pass
+
+    def page4_switch_off_func(e):
+        for i in itens_playlist_estrut.content.controls:
+            if i.content.controls[0].value==False:
+                page4_switch.controls[1].value=False
+        pass
+
+    def page4_switch_on_func(e):
+        aux=True
+        for i in itens_playlist_estrut.content.controls:
+            if i.content.controls[0].value==False:
+                aux=False
+                break
+        if aux==True:
+            page4_switch.controls[1].value=True
+
+    def page4_button_voltar_config_func(e):
+    #--------------------------------------------------------------------
+    #Definindo as variáveis globais trabalhadas
+
+        global cont_select
+        cont_select=0
+
+    #--------------------------------------------------------------------
+        janela.window.width=500
+        janela.window.height=380
+        page2_button_prosseguir_lock_unlock_func(e) #Bloqueia novamente o botão prosseguir na página 2
+
+        janela.clean()
+        janela.add(Stack_1e2)
+        janela.update()
+        pass
+
+    def page4_button_prosseguir_config_func(e):
+        page5_animation_surge_function(e)
+        pass
+
+#------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------
+#Funções relacionadas a página 4
+
+    def page5_animation_surge_function(e):
+        page5.offset=transform.Offset(0,0)
+        janela.update()
+
+    def page5_voltar_page4_func(e):
+        page5.offset=transform.Offset(0,1)
+        janela.update()
 
 #------------------------------------------------------------------------------------------
 
@@ -1343,7 +1635,7 @@ async def programa(janela: Page):
                                     border_radius=border_radius.all(5),
                                     ink=False,
                                     on_hover=page4_thumb_hover_fu,
-                                    on_click=baixar_thumb_func
+                                    on_click=baixar_thumb_todos_videos_playlist
                                 )
                         ]
     )
@@ -1443,9 +1735,36 @@ async def programa(janela: Page):
                         ]
     )
 
-    page4_switch=Container(
+    page4_switch=Column(
+                        horizontal_alignment=CrossAxisAlignment.CENTER,
+                        controls=[
+                                Container(
+                                        width=40,
+                                        height=20,
+                                        content=Text(
+                                                    value='All',
+                                                    color=colors.BLACK,
+                                                    size=14,
+                                                    weight=FontWeight.BOLD,
+                                                    text_align=TextAlign.CENTER
+                                                )
+                                ),
+                                Switch(
+                                    width=50,
+                                    height=30,
+                                    active_color=colors.RED_900,
+                                    track_outline_color=colors.BLACK,
+                                    track_color=colors.BLACK38,
+                                    thumb_icon=ControlState.HOVERED,
+                                    hover_color=ControlState.DISABLED,
+                                    on_change=page4_switch_change_func
+                                )
+                        ]
+    ) 
+
+    page4_switch_container=Container(
                         width=5,
-                        height=130,
+                        height=60,
                         content=Text(''),
                         bgcolor=colors.WHITE10,
                         border_radius=border_radius.all(3),
@@ -1464,10 +1783,16 @@ async def programa(janela: Page):
                                             thumbnail_playlist_page4,
                                             Row(
                                                 alignment=MainAxisAlignment.SPACE_BETWEEN,
+                                                spacing=2,
                                                 width=260,
                                                 controls=[
                                                         inf_playlist,
-                                                        page4_switch
+                                                        Column(
+                                                            controls=[
+                                                                    page4_switch_container
+                                                            ]
+                                                        )
+                                                        
                                                 ]
                                             )
                                     ]
@@ -1507,6 +1832,7 @@ async def programa(janela: Page):
                                                             shape=RoundedRectangleBorder(radius=10),
                                                             bgcolor=colors.RED_900,
                                             ),
+                                            on_click=page4_button_voltar_config_func
                                 ),
                                 ElevatedButton(
                                             content=Row(
@@ -1524,7 +1850,8 @@ async def programa(janela: Page):
                                             style=ButtonStyle(
                                                             shape=RoundedRectangleBorder(radius=10),
                                                             bgcolor=colors.RED_900,
-                                            )
+                                            ),
+                                            on_click=page4_button_prosseguir_config_func
                                 )
                         ]
     )
@@ -1551,9 +1878,180 @@ async def programa(janela: Page):
 #------------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------
-#Input inicial de página  
+#Itens presentes na página 5
 
-    bg=Container( #bg inicial do aplicativo (pág 1)
+    page5_column_music=Column(
+                            horizontal_alignment=CrossAxisAlignment.CENTER,
+                            controls=[
+                                    Container(
+                                        height=70,
+                                        width=170,
+                                        content=Text(
+                                                    value='Opções somente som',
+                                                    color=colors.BLACK,
+                                                    size=16,
+                                                    weight=FontWeight.BOLD,
+                                                    text_align=TextAlign.CENTER
+                                                ),
+                                        bgcolor=colors.RED_900,
+                                        alignment=alignment.center,
+                                        border_radius=border_radius.all(5),
+                                        padding=5
+                                    ),
+                                    Icon(
+                                        name=Icons.ARROW_DOWNWARD_ROUNDED,
+                                        color=colors.RED_900,
+                                        size=28
+                                    ),
+                                    Column(
+                                        controls=[
+                                                ElevatedButton( #Botão baixar música MP3
+                                                                width=170,
+                                                                height=70,
+                                                                content=Text(
+                                                                            value='Clássico (MP3)',
+                                                                            color=colors.BLACK
+                                                                        ),
+                                                                bgcolor=colors.WHITE30,
+                                                                style=ButtonStyle(
+                                                                                shape=RoundedRectangleBorder(radius=5),
+                                                                                side=(
+                                                                                    BorderSide(1,colors.BLACK)
+                                                                                    )
+                                                                            ),
+                                                                on_click=itens_selecionados_playlist_func,
+                                                                data='MP3'
+                                                ),
+                                                ElevatedButton( #Botão baixar música M4A
+                                                        width=170,
+                                                        height=70,
+                                                        content=Text(
+                                                                    value='Universal (M4A)',
+                                                                    color=colors.BLACK,
+                                                                    size=13),
+                                                                    bgcolor=colors.WHITE30,
+                                                                    style=ButtonStyle(
+                                                                                    shape=RoundedRectangleBorder(radius=5),
+                                                                                    side=(
+                                                                                        BorderSide(1,colors.BLACK)
+                                                                                        )
+                                                                                ),
+                                                        on_click=itens_selecionados_playlist_func,
+                                                        data='M4A'
+                                        ),
+                                        ]
+                                    )
+                            ]
+    )
+
+    page5_column_video=Column(
+                            horizontal_alignment=CrossAxisAlignment.CENTER,
+                            controls=[
+                                    Container(
+                                        height=70,
+                                        width=170,
+                                        content=Text(
+                                                    value='Opções somente vídeo',
+                                                    color=colors.BLACK,
+                                                    size=16,
+                                                    weight=FontWeight.BOLD,
+                                                    text_align=TextAlign.CENTER
+                                                ),
+                                        bgcolor=colors.RED_900,
+                                        alignment=alignment.center,
+                                        border_radius=border_radius.all(5),
+                                        padding=5
+                                    ),
+                                    Icon(
+                                        name=Icons.ARROW_DOWNWARD_ROUNDED,
+                                        color=colors.RED_900,
+                                        size=28
+                                    ),
+                                    Column(
+                                        controls=[
+                                                ElevatedButton( #Botão baixar vídeo 360p
+                                                                width=170,
+                                                                height=70,
+                                                                content=Text(
+                                                                            value='Rápido (360p)',
+                                                                            color=colors.BLACK
+                                                                        ),
+                                                                bgcolor=colors.WHITE30,
+                                                                style=ButtonStyle(
+                                                                                shape=RoundedRectangleBorder(radius=5),
+                                                                                side=(
+                                                                                    BorderSide(1,colors.BLACK)
+                                                                                    )
+                                                                            ),
+                                                                on_click=itens_selecionados_playlist_func,
+                                                                data='RAPIDO'
+                                                ),
+                                                ElevatedButton( #Botão baixar vídeo qualidade
+                                                        width=170,
+                                                        height=70,
+                                                        content=Text(value='Qualidade ()',
+                                                                    color=colors.BLACK,
+                                                                    size=13
+                                                                    ),
+                                                        bgcolor=colors.WHITE30,
+                                                        style=ButtonStyle(
+                                                                                    shape=RoundedRectangleBorder(radius=5),
+                                                                                    side=(
+                                                                                        BorderSide(1,colors.BLACK)
+                                                                                        )
+                                                                                ),
+                                                        on_click=itens_selecionados_playlist_func,
+                                                        data='QUALIDADE'
+                                        ),
+                                        ]
+                                    )
+                            ]
+    )
+
+    page5=Column(
+                width=450,
+                height=450,
+                spacing=-2,
+                offset=(0,1),
+                animate_offset=Animation(400, AnimationCurve.EASE_IN_OUT_SINE),
+                alignment=MainAxisAlignment.END,
+                horizontal_alignment=CrossAxisAlignment.CENTER,
+                controls=[
+                        Container(
+                            width=450,
+                            height=150,
+                            content=Text(''),
+                            opacity=0,
+                            on_click=page5_voltar_page4_func
+                        ),
+                        Container(
+                                width=420,
+                                height=300,
+                                content=Container(
+                                                width=380,
+                                                height=260,
+                                                content=Row(
+                                                            alignment=MainAxisAlignment.SPACE_BETWEEN,
+                                                            controls=[
+                                                                    page5_column_music,
+                                                                    page5_column_video
+                                                            ]
+                                                        ),
+                                                bgcolor=colors.WHITE30,
+                                                padding=5,
+                                                border_radius=border_radius.all(5)
+                                ),
+                                bgcolor=colors.GREY_900,
+                                border_radius=border_radius.only(5,5),
+                                padding=5,
+                        )
+                ]
+    )
+#------------------------------------------------------------------------------------------
+#------------------------------------------------------------------------------------------
+#Stack de páginas
+
+    Stack_1e2=Container( #bg inicial do aplicativo (pág 1)
                 height=janela.window.height-55,
                 width=janela.window.width,
                 content=Stack([
@@ -1564,8 +2062,16 @@ async def programa(janela: Page):
                 border_radius=border_radius.all(5),
     )
 
+    Stack_4e5=Container(
+                    content=Stack(
+                                controls=[
+                                        page4,
+                                        page5
+                                ]
+                    ),
+    )
 #------------------------------------------------------------------------------------------
 
-    janela.add(bg)
+    janela.add(Stack_1e2)
 
 app(programa) 
